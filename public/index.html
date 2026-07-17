@@ -203,15 +203,15 @@
     // One card may have multiple printings (normal / holofoil / reverse holo)
     return card.variants.map((v) => {
       const conds = v.conditions || {};
-      const estimated = v.estimated || [];
       const hasConds = Object.keys(conds).length > 0;
       const rows = Object.keys(CONDITION_LABELS).map((code) => `
         <tr>
           <td class="cond-name">${CONDITION_LABELS[code]}</td>
-          <td>${usd(conds[code])}${estimated.includes(code) && conds[code] !== undefined ? '<span class="est" title="Estimated — no live TCGplayer listings in this condition">*</span>' : ''}</td>
+          <td>${usd(conds[code])}</td>
         </tr>`).join('');
-      const footnote = estimated.some((code) => conds[code] !== undefined)
-        ? `<tr><td colspan="2" class="cond-name footnote">* estimated from market price — no live listings in this condition</td></tr>`
+      const missing = Object.keys(CONDITION_LABELS).some((code) => conds[code] === undefined);
+      const footnote = hasConds
+        ? `<tr><td colspan="2" class="cond-name footnote">TCGplayer market prices from recent sales${missing ? ' · — = no recent sales in this condition' : ''}</td></tr>`
         : '';
 
       return `

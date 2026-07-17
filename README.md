@@ -5,7 +5,7 @@
 
 Search Pokemon cards and see current TCGplayer market pricing by condition (Near Mint → Damaged). Node.js + Express, deployed on [Upsun](https://upsun.com), pricing from the [PokemonPriceTracker API](https://www.pokemonpricetracker.com/api-reference).
 
-Note: TCGplayer no longer issues public API keys, so this app uses PokemonPriceTracker, which mirrors TCGplayer pricing daily.
+Note: TCGplayer no longer issues public API keys, so this app uses PokemonPriceTracker, which mirrors TCGplayer's per-condition market prices (derived from recent sales) daily. Conditions with no recent sales have no price and show "—".
 
 ## How it works
 
