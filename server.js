@@ -172,11 +172,18 @@ function toMillis(v) {
 // Compute 7/30-day % change from a price history payload (shape-tolerant).
 function parseHistory(raw) {
   const h = raw.priceHistory ?? raw.history ?? null;
-  const points = Array.isArray(h) ? h
+  let points = Array.isArray(h) ? h
     : Array.isArray(h?.data) ? h.data
     : Array.isArray(h?.points) ? h.points
     : Array.isArray(h?.prices) ? h.prices
     : null;
+  // PPT live shape: { conditions: { "Near Mint": { history: [{date, market, volume}] }, ... } }
+  // Use Near Mint history for the trend; fall back to the first condition present.
+  if (!points && h?.conditions && typeof h.conditions === 'object') {
+    const keys = Object.keys(h.conditions);
+    const nmKey = keys.find((k) => conditionCode(k) === 'NM') ?? keys[0];
+    points = h.conditions[nmKey]?.history;
+  }
   if (!points || points.length < 2) return null;
 
   const norm = points
@@ -204,9 +211,13 @@ function parseGraded(raw) {
   if (!e || typeof e !== 'object') return null;
   const out = [];
   const push = (label, obj) => {
-    const price = toNumber(
-      obj?.smartMarketPrice ?? obj?.averagePrice ?? obj?.avg ?? obj?.medianPrice ?? obj?.median ?? obj
-    );
+    const price = toNumber(obj?.smartMarketPrice)
+      ?? toNumber(obj?.marketPrice7Day)
+      ?? toNumber(obj?.averagePrice)
+      ?? toNumber(obj?.avg)
+      ?? toNumber(obj?.medianPrice)
+      ?? toNumber(obj?.median)
+      ?? toNumber(obj);
     if (price === null) return;
     out.push({
       grade: label,
@@ -220,7 +231,7 @@ function parseGraded(raw) {
     for (const [k, v] of Object.entries(obj)) {
       const m = k.match(gradeKey);
       if (m) push(`${m[1].toUpperCase()} ${m[2]}`, v);
-      else if ((k === 'grades' || k === 'graded' || k === 'data') && v && typeof v === 'object' && !Array.isArray(v)) walk(v);
+      else if ((k === 'salesByGrade' || k === 'grades' || k === 'graded' || k === 'data') && v && typeof v === 'object' && !Array.isArray(v)) walk(v);
     }
   };
   if (Array.isArray(e)) {
