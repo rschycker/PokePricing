@@ -152,7 +152,89 @@ function normalizeCard(raw) {
     });
   }
 
+  card.history = parseHistory(raw);
+  card.graded = parseGraded(raw);
+
   return card;
+}
+
+/* ----------------------- History & graded-sale parsing --------------------- */
+
+function toMillis(v) {
+  if (typeof v === 'string') {
+    const t = Date.parse(v);
+    return isNaN(t) ? 0 : t;
+  }
+  if (typeof v === 'number') return v > 1e12 ? v : v * 1000;
+  return 0;
+}
+
+// Compute 7/30-day % change from a price history payload (shape-tolerant).
+function parseHistory(raw) {
+  const h = raw.priceHistory ?? raw.history ?? null;
+  const points = Array.isArray(h) ? h
+    : Array.isArray(h?.data) ? h.data
+    : Array.isArray(h?.points) ? h.points
+    : Array.isArray(h?.prices) ? h.prices
+    : null;
+  if (!points || points.length < 2) return null;
+
+  const norm = points
+    .map((pt) => ({
+      t: toMillis(pt.date ?? pt.t ?? pt.timestamp ?? pt.day),
+      p: toNumber(pt.price ?? pt.p ?? pt.market ?? pt.marketPrice ?? pt.value),
+    }))
+    .filter((x) => x.p !== null && x.t > 0)
+    .sort((a, b) => a.t - b.t);
+  if (norm.length < 2) return null;
+
+  const latest = norm[norm.length - 1];
+  const changeOver = (days) => {
+    const cutoff = latest.t - days * 86400000;
+    const past = norm.find((x) => x.t >= cutoff) ?? norm[0];
+    if (!past || past.p === 0 || past.t === latest.t) return null;
+    return Math.round(((latest.p - past.p) / past.p) * 1000) / 10;
+  };
+  return { change7d: changeOver(7), change30d: changeOver(30), dataPoints: norm.length };
+}
+
+// Extract graded-copy prices from eBay sales data (shape-tolerant).
+function parseGraded(raw) {
+  const e = raw.ebay ?? raw.ebayData ?? raw.gradedPrices ?? null;
+  if (!e || typeof e !== 'object') return null;
+  const out = [];
+  const push = (label, obj) => {
+    const price = toNumber(
+      obj?.smartMarketPrice ?? obj?.averagePrice ?? obj?.avg ?? obj?.medianPrice ?? obj?.median ?? obj
+    );
+    if (price === null) return;
+    out.push({
+      grade: label,
+      price,
+      sales: obj?.salesCount ?? obj?.sales ?? obj?.count ?? null,
+    });
+  };
+
+  const gradeKey = /^(psa|cgc|bgs|sgc)[\s_-]?(\d+(?:\.\d)?)$/i;
+  const walk = (obj) => {
+    for (const [k, v] of Object.entries(obj)) {
+      const m = k.match(gradeKey);
+      if (m) push(`${m[1].toUpperCase()} ${m[2]}`, v);
+      else if ((k === 'grades' || k === 'graded' || k === 'data') && v && typeof v === 'object' && !Array.isArray(v)) walk(v);
+    }
+  };
+  if (Array.isArray(e)) {
+    for (const g of e) {
+      if (g && (g.grade !== undefined || g.label)) push(String(g.grade ?? g.label), g);
+    }
+  } else {
+    walk(e);
+  }
+
+  if (!out.length) return null;
+  // Highest grades first
+  out.sort((a, b) => (parseFloat(b.grade.replace(/\D+/g, ' ')) || 0) - (parseFloat(a.grade.replace(/\D+/g, ' ')) || 0));
+  return out.slice(0, 6);
 }
 
 /* -------------------------------- Demo data ------------------------------- */
@@ -168,6 +250,12 @@ const DEMO_CARDS = [
     rarity: 'Holo Rare',
     printing: 'Holofoil (Unlimited)',
     prices: { market: 425.0, low: 300.0, conditions: { near_mint: 425.0, lightly_played: 340.11, moderately_played: 262.5, heavily_played: 191.25, damaged: 127.5 } },
+    priceHistory: [
+      { date: new Date(Date.now() - 30 * 86400000).toISOString(), price: 401.5 },
+      { date: new Date(Date.now() - 7 * 86400000).toISOString(), price: 418.0 },
+      { date: new Date().toISOString(), price: 425.0 },
+    ],
+    ebay: { psa10: { averagePrice: 1450.0, salesCount: 8 }, psa9: { averagePrice: 620.0, salesCount: 21 }, cgc9: { averagePrice: 540.0, salesCount: 5 } },
     lastPriceUpdate: new Date().toISOString(),
   },
   {
@@ -225,7 +313,8 @@ app.get('/api/search', async (req, res) => {
   if (cached) return res.json(cached);
 
   try {
-    const url = `${API_BASE}/cards?search=${encodeURIComponent(q)}&limit=12`;
+    // includeHistory/includeEbay require the paid API plan (3 credits per card).
+    const url = `${API_BASE}/cards?search=${encodeURIComponent(q)}&limit=12&includeHistory=true&includeEbay=true&days=30`;
     const upstream = await fetch(url, {
       headers: { Authorization: `Bearer ${API_KEY}` },
     });

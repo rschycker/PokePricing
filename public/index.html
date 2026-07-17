@@ -109,6 +109,21 @@
   .na { color: #565f8a; font-weight: 400; }
   .est { color: var(--accent); margin-left: 2px; cursor: help; }
   .footnote { font-size: .72rem; padding-bottom: 14px !important; }
+  .trend { font-size: .78rem; font-weight: 700; margin-left: 8px; vertical-align: middle; }
+  .trend.up { color: var(--green); }
+  .trend.down { color: #f87171; }
+  .graded-title {
+    padding: 10px 16px 4px; color: var(--accent); font-size: .72rem;
+    font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+    border-top: 1px solid var(--border);
+  }
+  .graded { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 16px 12px; }
+  .graded span {
+    background: var(--panel2); border-radius: 8px; padding: 4px 10px;
+    font-size: .78rem;
+  }
+  .graded b { color: var(--green); }
+  .graded small { color: var(--muted); }
   .card-footer { margin-top: auto; padding: 10px 16px 14px; }
   .card-footer a { color: var(--accent2); font-size: .82rem; text-decoration: none; }
   .card-footer a:hover { text-decoration: underline; }
@@ -226,7 +241,7 @@
               ${esc(card.set)}${card.number ? ' · #' + esc(card.number) + (card.totalSetNumber ? '/' + esc(card.totalSetNumber) : '') : ''}<br>
               ${esc(card.rarity)}
             </div>
-            <div class="market">${usd(v.market)}<small>TCGplayer market price</small></div>
+            <div class="market">${usd(v.market)}${trendBadge(card.history)}<small>TCGplayer market price</small></div>
             ${v.printing ? `<span class="printing">${esc(v.printing)}</span>` : ''}
           </div>
         </div>
@@ -234,11 +249,28 @@
           <thead><tr><th>Condition</th><th style="text-align:right">Price</th></tr></thead>
           <tbody>${hasConds ? rows + footnote : `<tr><td colspan="2" class="cond-name" style="padding-bottom:14px">Condition breakdown not available for this card${v.low !== null && v.low !== undefined ? ' · lowest listing ' + usd(v.low).replace(/<[^>]*>/g, '') : ''}</td></tr>`}</tbody>
         </table>
+        ${gradedSection(card.graded)}
         <div class="card-footer">
           ${card.tcgPlayerUrl ? `<a href="${esc(card.tcgPlayerUrl)}" target="_blank" rel="noopener">View on TCGplayer →</a>` : ''}
         </div>
       </div>`;
     }).join('');
+  }
+
+  function trendBadge(history) {
+    const change = history?.change30d ?? history?.change7d;
+    if (change === null || change === undefined) return '';
+    const days = history?.change30d !== null && history?.change30d !== undefined ? 30 : 7;
+    const up = change >= 0;
+    return `<span class="trend ${up ? 'up' : 'down'}" title="Price change over last ${days} days">${up ? '▲' : '▼'} ${Math.abs(change)}% <small>(${days}d)</small></span>`;
+  }
+
+  function gradedSection(graded) {
+    if (!graded || !graded.length) return '';
+    const chips = graded.map((g) =>
+      `<span>${esc(g.grade)} <b>${usd(g.price).replace(/<[^>]*>/g, '—')}</b>${g.sales ? ` <small>(${esc(g.sales)} sales)</small>` : ''}</span>`
+    ).join('');
+    return `<div class="graded-title">Graded — recent eBay sales</div><div class="graded">${chips}</div>`;
   }
 </script>
 </body>
