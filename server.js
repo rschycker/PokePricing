@@ -55,22 +55,31 @@ function toNumber(v) {
   return null;
 }
 
-// Pull condition prices out of an object whose keys may be condition names.
+// Map a condition label like "Near Mint Holofoil" or "lightly_played" to a
+// canonical code. Matches by prefix so printing suffixes are ignored.
+function conditionCode(label) {
+  const norm = String(label).toLowerCase().replace(/[\s_-]/g, '');
+  for (const code of CONDITIONS) {
+    if (CONDITION_ALIASES[code].some((a) => norm.startsWith(a.replace(/[\s_-]/g, '')))) {
+      return code;
+    }
+  }
+  return null;
+}
+
+// Pull condition prices out of an object whose keys are condition labels,
+// e.g. { "Near Mint Holofoil": { price: 20.77 }, "Lightly Played Holofoil": {...} }
 function extractConditions(obj) {
   if (!obj || typeof obj !== 'object') return null;
   const out = {};
   let found = false;
-  for (const code of CONDITIONS) {
-    for (const alias of CONDITION_ALIASES[code]) {
-      const key = Object.keys(obj).find((k) => k.toLowerCase().replace(/[\s_-]/g, '') === alias.replace(/[\s_-]/g, ''));
-      if (key !== undefined) {
-        const n = toNumber(obj[key]);
-        if (n !== null) {
-          out[code] = n;
-          found = true;
-        }
-        break;
-      }
+  for (const [key, val] of Object.entries(obj)) {
+    const code = conditionCode(key);
+    if (!code) continue;
+    const n = toNumber(val);
+    if (n !== null && out[code] === undefined) {
+      out[code] = n;
+      found = true;
     }
   }
   return found ? out : null;
@@ -78,9 +87,14 @@ function extractConditions(obj) {
 
 /**
  * Normalize a raw card object from the API into a stable shape for the UI.
- * Defensive: the prices payload may be flat ({market, low, mid, high}),
- * condition-keyed, nested under `conditions`, or keyed by printing/variant
- * (normal / holofoil / reverseHolofoil).
+ *
+ * Live /api/v2/cards shape (verified 2026-07):
+ *   prices: {
+ *     market, low, sellers, primaryPrinting, lastUpdated,
+ *     variants: { "<Printing>": { "<Condition> <Printing>": { price, ... }, ... } }
+ *   }
+ *   variants: { "<Printing>": { printing, marketPrice, lowPrice, conditionUsed } }
+ *   imageCdnUrl400 / imageUrl, tcgPlayerUrl, printingsAvailable
  */
 function normalizeCard(raw) {
   const prices = raw.prices || raw.price || {};
@@ -92,47 +106,44 @@ function normalizeCard(raw) {
     number: raw.cardNumber ?? raw.number ?? '',
     totalSetNumber: raw.totalSetNumber ?? null,
     rarity: raw.rarity ?? '',
-    image: raw.image ?? raw.imageUrl ?? raw.images?.small ?? raw.images?.large ?? null,
-    tcgPlayerUrl: raw.tcgPlayerId
+    image: raw.imageCdnUrl400 ?? raw.imageUrl ?? raw.image ?? raw.images?.small ?? raw.images?.large ?? null,
+    tcgPlayerUrl: raw.tcgPlayerUrl ?? (raw.tcgPlayerId
       ? `https://www.tcgplayer.com/product/${raw.tcgPlayerId}`
-      : null,
-    lastUpdated: raw.lastPriceUpdate ?? raw.updatedAt ?? null,
+      : null),
+    lastUpdated: prices.lastUpdated ?? raw.lastPriceUpdate ?? raw.updatedAt ?? null,
     variants: [],
   };
-
-  const conditionSources = [prices.conditions, prices.byCondition, prices];
-  let conditions = null;
-  for (const src of conditionSources) {
-    conditions = extractConditions(src);
-    if (conditions) break;
-  }
 
   const flatMarket = toNumber(prices.market ?? prices.marketPrice ?? raw.marketPrice);
   const flatLow = toNumber(prices.low ?? prices.lowPrice ?? raw.lowPrice);
 
-  // Detect printing/variant-keyed prices (normal, holofoil, reverseHolofoil, 1stEdition...)
-  const variantKeys = Object.keys(prices).filter((k) =>
-    /^(normal|holofoil|reverse|reverseholofoil|1st|first|unlimited)/i.test(k.replace(/[\s_-]/g, ''))
-  );
+  // Primary shape: prices.variants keyed by printing, each holding
+  // condition-labeled price objects. raw.variants carries per-printing
+  // market/low summary.
+  const priceVariants = prices.variants && typeof prices.variants === 'object' ? prices.variants : {};
+  const summaryVariants = raw.variants && typeof raw.variants === 'object' ? raw.variants : {};
+  const printings = [...new Set([...Object.keys(priceVariants), ...Object.keys(summaryVariants)])];
 
-  if (variantKeys.length > 0) {
-    for (const vk of variantKeys) {
-      const v = prices[vk];
-      card.variants.push({
-        printing: vk,
-        market: toNumber(v),
-        low: toNumber(v?.low),
-        conditions: extractConditions(v?.conditions ?? v),
-      });
-    }
+  for (const printing of printings) {
+    const conditions = extractConditions(priceVariants[printing]);
+    const summary = summaryVariants[printing] || {};
+    const isPrimary = printing === prices.primaryPrinting;
+    card.variants.push({
+      printing,
+      market: toNumber(summary.marketPrice) ?? (isPrimary ? flatMarket : null) ?? conditions?.NM ?? null,
+      low: toNumber(summary.lowPrice) ?? (isPrimary ? flatLow : null),
+      conditions,
+    });
   }
 
+  // Fallbacks for older/other shapes: condition keys directly on prices
+  // or a flat market price only.
   if (card.variants.length === 0) {
     card.variants.push({
-      printing: raw.printing ?? 'Standard',
+      printing: prices.primaryPrinting ?? raw.printing ?? 'Standard',
       market: flatMarket,
       low: flatLow,
-      conditions,
+      conditions: extractConditions(prices.conditions ?? prices.byCondition ?? prices),
     });
   }
 
