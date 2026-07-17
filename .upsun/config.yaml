@@ -1,0 +1,30 @@
+# Upsun configuration — https://docs.upsun.com
+applications:
+  app:
+    source:
+      root: "/"
+
+    type: "nodejs:22"
+
+    build:
+      flavor: none
+
+    hooks:
+      build: |
+        npm ci --omit=dev
+
+    web:
+      commands:
+        start: "node server.js"
+
+    # Environment variables:
+    # Set your PokemonPriceTracker key as a sensitive variable (do NOT commit it):
+    #   upsun variable:create env:PPT_API_KEY --value 'YOUR_KEY' --sensitive true --level project
+
+routes:
+  "https://{default}/":
+    type: upstream
+    upstream: "app:http"
+  "https://www.{default}":
+    type: redirect
+    to: "https://{default}/"
