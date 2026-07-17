@@ -107,6 +107,8 @@
   tbody tr:last-child td { padding-bottom: 14px; }
   .cond-name { color: var(--muted); }
   .na { color: #565f8a; font-weight: 400; }
+  .est { color: var(--accent); margin-left: 2px; cursor: help; }
+  .footnote { font-size: .72rem; padding-bottom: 14px !important; }
   .card-footer { margin-top: auto; padding: 10px 16px 14px; }
   .card-footer a { color: var(--accent2); font-size: .82rem; text-decoration: none; }
   .card-footer a:hover { text-decoration: underline; }
@@ -201,12 +203,16 @@
     // One card may have multiple printings (normal / holofoil / reverse holo)
     return card.variants.map((v) => {
       const conds = v.conditions || {};
+      const estimated = v.estimated || [];
       const hasConds = Object.keys(conds).length > 0;
       const rows = Object.keys(CONDITION_LABELS).map((code) => `
         <tr>
           <td class="cond-name">${CONDITION_LABELS[code]}</td>
-          <td>${usd(conds[code])}</td>
+          <td>${usd(conds[code])}${estimated.includes(code) && conds[code] !== undefined ? '<span class="est" title="Estimated — no live TCGplayer listings in this condition">*</span>' : ''}</td>
         </tr>`).join('');
+      const footnote = estimated.some((code) => conds[code] !== undefined)
+        ? `<tr><td colspan="2" class="cond-name footnote">* estimated from market price — no live listings in this condition</td></tr>`
+        : '';
 
       return `
       <div class="card">
@@ -226,7 +232,7 @@
         </div>
         <table>
           <thead><tr><th>Condition</th><th style="text-align:right">Price</th></tr></thead>
-          <tbody>${hasConds ? rows : `<tr><td colspan="2" class="cond-name" style="padding-bottom:14px">Condition breakdown not available for this card${v.low !== null && v.low !== undefined ? ' · lowest listing ' + usd(v.low).replace(/<[^>]*>/g, '') : ''}</td></tr>`}</tbody>
+          <tbody>${hasConds ? rows + footnote : `<tr><td colspan="2" class="cond-name" style="padding-bottom:14px">Condition breakdown not available for this card${v.low !== null && v.low !== undefined ? ' · lowest listing ' + usd(v.low).replace(/<[^>]*>/g, '') : ''}</td></tr>`}</tbody>
         </table>
         <div class="card-footer">
           ${card.tcgPlayerUrl ? `<a href="${esc(card.tcgPlayerUrl)}" target="_blank" rel="noopener">View on TCGplayer →</a>` : ''}

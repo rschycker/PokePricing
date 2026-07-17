@@ -45,6 +45,29 @@ const CONDITION_ALIASES = {
   DM: ['dm', 'dmg', 'damaged'],
 };
 
+// Typical TCGplayer condition discounts relative to Near Mint. Used to
+// estimate prices for conditions that have no live listings.
+const CONDITION_MULTIPLIERS = { NM: 1, LP: 0.85, MP: 0.7, HP: 0.55, DM: 0.4 };
+
+// Fill in any missing conditions from the NM/market baseline.
+// Returns { conditions, estimated } where `estimated` lists the codes
+// that are estimates rather than live TCGplayer prices.
+function fillConditions(conditions, market) {
+  const known = conditions ? { ...conditions } : {};
+  const base = known.NM ?? market;
+  const estimated = [];
+  if (base === null || base === undefined) {
+    return { conditions: Object.keys(known).length ? known : null, estimated };
+  }
+  for (const code of CONDITIONS) {
+    if (known[code] === undefined) {
+      known[code] = Math.round(base * CONDITION_MULTIPLIERS[code] * 100) / 100;
+      estimated.push(code);
+    }
+  }
+  return { conditions: known, estimated };
+}
+
 function toNumber(v) {
   if (typeof v === 'number' && isFinite(v)) return v;
   if (typeof v === 'string' && v.trim() !== '' && isFinite(Number(v))) return Number(v);
@@ -125,25 +148,31 @@ function normalizeCard(raw) {
   const printings = [...new Set([...Object.keys(priceVariants), ...Object.keys(summaryVariants)])];
 
   for (const printing of printings) {
-    const conditions = extractConditions(priceVariants[printing]);
+    const live = extractConditions(priceVariants[printing]);
     const summary = summaryVariants[printing] || {};
     const isPrimary = printing === prices.primaryPrinting;
+    const market = toNumber(summary.marketPrice) ?? (isPrimary ? flatMarket : null) ?? live?.NM ?? null;
+    const { conditions, estimated } = fillConditions(live, market);
     card.variants.push({
       printing,
-      market: toNumber(summary.marketPrice) ?? (isPrimary ? flatMarket : null) ?? conditions?.NM ?? null,
+      market,
       low: toNumber(summary.lowPrice) ?? (isPrimary ? flatLow : null),
       conditions,
+      estimated,
     });
   }
 
   // Fallbacks for older/other shapes: condition keys directly on prices
   // or a flat market price only.
   if (card.variants.length === 0) {
+    const live = extractConditions(prices.conditions ?? prices.byCondition ?? prices);
+    const { conditions, estimated } = fillConditions(live, flatMarket);
     card.variants.push({
       printing: prices.primaryPrinting ?? raw.printing ?? 'Standard',
       market: flatMarket,
       low: flatLow,
-      conditions: extractConditions(prices.conditions ?? prices.byCondition ?? prices),
+      conditions,
+      estimated,
     });
   }
 
