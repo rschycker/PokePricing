@@ -205,47 +205,54 @@ function parseHistory(raw) {
   return { change7d: changeOver(7), change30d: changeOver(30), dataPoints: norm.length };
 }
 
-// Extract graded-copy prices from eBay sales data (shape-tolerant).
+// Extract graded eBay sales data, grouped by grading company and grade.
+// Live shape: ebay.salesByGrade = { psa10: {count, averagePrice, medianPrice,
+// marketPrice7Day, marketTrend, lastSaleDate, smartMarketPrice: {price}, ...} }
+// Individual sold listings, when present, are picked up from any array field.
 function parseGraded(raw) {
-  const e = raw.ebay ?? raw.ebayData ?? raw.gradedPrices ?? null;
+  const e = raw.ebay ?? raw.ebayData ?? null;
   if (!e || typeof e !== 'object') return null;
-  const out = [];
-  const push = (label, obj) => {
-    const price = toNumber(obj?.smartMarketPrice)
-      ?? toNumber(obj?.marketPrice7Day)
-      ?? toNumber(obj?.averagePrice)
-      ?? toNumber(obj?.avg)
-      ?? toNumber(obj?.medianPrice)
-      ?? toNumber(obj?.median)
-      ?? toNumber(obj);
-    if (price === null) return;
-    out.push({
-      grade: label,
-      price,
-      sales: obj?.salesCount ?? obj?.sales ?? obj?.count ?? null,
-    });
-  };
+  const src = e.salesByGrade ?? e.grades ?? e.graded ?? e;
+  if (!src || typeof src !== 'object') return null;
 
-  const gradeKey = /^(psa|cgc|bgs|sgc)[\s_-]?(\d+(?:\.\d)?)$/i;
-  const walk = (obj) => {
-    for (const [k, v] of Object.entries(obj)) {
-      const m = k.match(gradeKey);
-      if (m) push(`${m[1].toUpperCase()} ${m[2]}`, v);
-      else if ((k === 'salesByGrade' || k === 'grades' || k === 'graded' || k === 'data') && v && typeof v === 'object' && !Array.isArray(v)) walk(v);
-    }
-  };
-  if (Array.isArray(e)) {
-    for (const g of e) {
-      if (g && (g.grade !== undefined || g.label)) push(String(g.grade ?? g.label), g);
-    }
-  } else {
-    walk(e);
+  const gradeKey = /^(psa|cgc|bgs|sgc|tag)[\s_-]?(\d+(?:[._]\d)?)$/i;
+  const companies = {};
+
+  for (const [k, v] of Object.entries(src)) {
+    const m = k.match(gradeKey);
+    if (!m || !v || typeof v !== 'object') continue;
+    const company = m[1].toUpperCase();
+    const grade = m[2].replace('_', '.');
+
+    // Any array of per-sale records, whatever it's called.
+    const salesArr = [v.recentSales, v.sales, v.soldListings, v.listings, v.salesHistory, v.recentSoldListings]
+      .find(Array.isArray) ?? null;
+    const recentSales = salesArr
+      ? salesArr
+          .map((s) => ({
+            date: s.date ?? s.soldDate ?? s.endDate ?? s.saleDate ?? null,
+            price: toNumber(s.price ?? s.soldPrice ?? s.totalPrice ?? s.amount ?? s),
+            title: s.title ?? null,
+            url: s.url ?? s.link ?? s.itemUrl ?? s.ebayUrl ?? null,
+          }))
+          .filter((s) => s.price !== null)
+          .sort((a, b) => toMillis(b.date) - toMillis(a.date))
+          .slice(0, 10)
+      : null;
+
+    (companies[company] ??= {})[grade] = {
+      price: toNumber(v.smartMarketPrice) ?? toNumber(v.marketPrice7Day) ?? toNumber(v.averagePrice) ?? toNumber(v.medianPrice),
+      average: toNumber(v.averagePrice),
+      median: toNumber(v.medianPrice),
+      market7d: toNumber(v.marketPrice7Day),
+      count: v.count ?? v.salesCount ?? null,
+      trend: v.marketTrend ?? null,
+      lastSale: v.lastSaleDate ?? null,
+      recentSales,
+    };
   }
 
-  if (!out.length) return null;
-  // Highest grades first
-  out.sort((a, b) => (parseFloat(b.grade.replace(/\D+/g, ' ')) || 0) - (parseFloat(a.grade.replace(/\D+/g, ' ')) || 0));
-  return out.slice(0, 6);
+  return Object.keys(companies).length ? companies : null;
 }
 
 /* -------------------------------- Demo data ------------------------------- */
@@ -266,7 +273,22 @@ const DEMO_CARDS = [
       { date: new Date(Date.now() - 7 * 86400000).toISOString(), price: 418.0 },
       { date: new Date().toISOString(), price: 425.0 },
     ],
-    ebay: { psa10: { averagePrice: 1450.0, salesCount: 8 }, psa9: { averagePrice: 620.0, salesCount: 21 }, cgc9: { averagePrice: 540.0, salesCount: 5 } },
+    ebay: {
+      salesByGrade: {
+        psa10: {
+          count: 408, averagePrice: 1450.0, medianPrice: 1500.0, marketPrice7Day: 1475.0, marketTrend: 'up', lastSaleDate: new Date().toISOString(),
+          smartMarketPrice: { price: 1462.5 },
+          recentSales: Array.from({ length: 10 }, (_, i) => ({
+            date: new Date(Date.now() - i * 2 * 86400000).toISOString(),
+            price: Math.round((1500 - i * 12.5) * 100) / 100,
+            title: `Charizard Base Set PSA 10 (demo sale ${i + 1})`,
+          })),
+        },
+        psa9: { count: 544, averagePrice: 620.0, medianPrice: 615.0, marketPrice7Day: 628.0, marketTrend: 'down', smartMarketPrice: { price: 622.0 } },
+        bgs9: { count: 33, averagePrice: 540.0, medianPrice: 535.0, marketPrice7Day: null, smartMarketPrice: null },
+        cgc10: { count: 57, averagePrice: 890.0, medianPrice: 900.0, marketPrice7Day: 905.0, smartMarketPrice: { price: 898.0 } },
+      },
+    },
     lastPriceUpdate: new Date().toISOString(),
   },
   {

@@ -117,13 +117,34 @@
     font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
     border-top: 1px solid var(--border);
   }
-  .graded { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 16px 12px; }
-  .graded span {
-    background: var(--panel2); border-radius: 8px; padding: 4px 10px;
-    font-size: .78rem;
+  .graded-ui { padding: 4px 16px 12px; }
+  .grader-btns { display: flex; gap: 6px; margin-bottom: 8px; }
+  .grader-btns button {
+    flex: 1; padding: 6px 0; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--panel2); color: var(--text); font-weight: 700; font-size: .8rem;
+    cursor: pointer;
   }
-  .graded b { color: var(--green); }
-  .graded small { color: var(--muted); }
+  .grader-btns button.active { background: var(--accent); color: #1a1f3a; border-color: var(--accent); }
+  .grader-btns button:disabled { opacity: .35; cursor: not-allowed; }
+  .grade-select {
+    width: 100%; padding: 8px 10px; border-radius: 8px; margin-bottom: 8px;
+    background: var(--panel2); color: var(--text); border: 1px solid var(--border);
+    font-size: .85rem;
+  }
+  .grade-panel { background: var(--panel2); border-radius: 10px; padding: 10px 12px; font-size: .82rem; }
+  .sales-list { list-style: none; }
+  .sales-list li {
+    display: flex; justify-content: space-between; gap: 8px;
+    padding: 4px 0; border-bottom: 1px solid rgba(46,55,99,.5);
+  }
+  .sales-list li:last-child { border-bottom: none; }
+  .sales-list .sale-date { color: var(--muted); }
+  .sales-list b { color: var(--green); }
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; }
+  .stats div span { color: var(--muted); font-size: .72rem; display: block; }
+  .stats div b { font-size: .88rem; }
+  .panel-note { color: var(--muted); font-size: .72rem; margin-top: 8px; line-height: 1.4; }
+  .panel-empty { color: var(--muted); }
   .card-footer { margin-top: auto; padding: 10px 16px 14px; }
   .card-footer a { color: var(--accent2); font-size: .82rem; text-decoration: none; }
   .card-footer a:hover { text-decoration: underline; }
@@ -204,19 +225,25 @@
         return;
       }
 
+      cardsData = data.results;
+
       statusEl.textContent = data.results.length + ' result' + (data.results.length === 1 ? '' : 's')
         + (data.creditsRemaining ? ' · API credits remaining today: ' + data.creditsRemaining : '');
 
       grid.innerHTML = data.results.map(renderCard).join('');
+      wireGradedSections();
     } catch (err) {
       spinner.style.display = 'none';
       statusEl.textContent = 'Network error — please try again.';
     }
   });
 
-  function renderCard(card) {
+  let cardsData = [];
+  const GRADERS = ['PSA', 'BGS', 'CGC'];
+
+  function renderCard(card, cardIdx) {
     // One card may have multiple printings (normal / holofoil / reverse holo)
-    return card.variants.map((v) => {
+    return card.variants.map((v, vi) => {
       const conds = v.conditions || {};
       const hasConds = Object.keys(conds).length > 0;
       const rows = Object.keys(CONDITION_LABELS).map((code) => `
@@ -249,7 +276,7 @@
           <thead><tr><th>Condition</th><th style="text-align:right">Price</th></tr></thead>
           <tbody>${hasConds ? rows + footnote : `<tr><td colspan="2" class="cond-name" style="padding-bottom:14px">Condition breakdown not available for this card${v.low !== null && v.low !== undefined ? ' · lowest listing ' + usd(v.low).replace(/<[^>]*>/g, '') : ''}</td></tr>`}</tbody>
         </table>
-        ${gradedSection(card.graded)}
+        ${vi === 0 ? gradedSection(card, cardIdx) : ''}
         <div class="card-footer">
           ${card.tcgPlayerUrl ? `<a href="${esc(card.tcgPlayerUrl)}" target="_blank" rel="noopener">View on TCGplayer →</a>` : ''}
         </div>
@@ -265,12 +292,78 @@
     return `<span class="trend ${up ? 'up' : 'down'}" title="Price change over last ${days} days">${up ? '▲' : '▼'} ${Math.abs(change)}% <small>(${days}d)</small></span>`;
   }
 
-  function gradedSection(graded) {
-    if (!graded || !graded.length) return '';
-    const chips = graded.map((g) =>
-      `<span>${esc(g.grade)} <b>${usd(g.price).replace(/<[^>]*>/g, '—')}</b>${g.sales ? ` <small>(${esc(g.sales)} sales)</small>` : ''}</span>`
-    ).join('');
-    return `<div class="graded-title">Graded — recent eBay sales</div><div class="graded">${chips}</div>`;
+  function gradedSection(card, cardIdx) {
+    if (!card.graded) return '';
+    return `
+      <div class="graded-title">Graded — eBay sales</div>
+      <div class="graded-ui" data-idx="${cardIdx}">
+        <div class="grader-btns">
+          ${GRADERS.map((g) =>
+            `<button type="button" data-grader="${g}" ${card.graded[g] ? '' : 'disabled title="No sales data"'}>${g}</button>`
+          ).join('')}
+        </div>
+        <select class="grade-select" aria-label="Grade"></select>
+        <div class="grade-panel"></div>
+      </div>`;
+  }
+
+  function wireGradedSections() {
+    document.querySelectorAll('.graded-ui').forEach((ui) => {
+      const card = cardsData[Number(ui.dataset.idx)];
+      if (!card || !card.graded) return;
+      const btns = [...ui.querySelectorAll('.grader-btns button')];
+      const select = ui.querySelector('.grade-select');
+      const panel = ui.querySelector('.grade-panel');
+
+      const selectGrader = (grader) => {
+        btns.forEach((b) => b.classList.toggle('active', b.dataset.grader === grader));
+        const grades = Object.keys(card.graded[grader] || {})
+          .sort((a, b) => parseFloat(b) - parseFloat(a));
+        select.innerHTML = grades.map((g) => `<option value="${esc(g)}">${grader} ${esc(g)}</option>`).join('');
+        renderPanel(grader, grades[0]);
+      };
+
+      const renderPanel = (grader, grade) => {
+        const entry = card.graded[grader]?.[grade];
+        if (!entry) { panel.innerHTML = '<div class="panel-empty">No sales data for this grade.</div>'; return; }
+        if (entry.recentSales && entry.recentSales.length) {
+          panel.innerHTML = '<ol class="sales-list">' + entry.recentSales.map((s) => `
+            <li>
+              <span class="sale-date">${fmtDate(s.date)}</span>
+              <b>${usd(s.price)}</b>
+              ${s.url ? `<a href="${esc(s.url)}" target="_blank" rel="noopener">view</a>` : ''}
+            </li>`).join('') + '</ol>';
+          return;
+        }
+        panel.innerHTML = `
+          <div class="stats">
+            <div><span>Market price</span><b>${usd(entry.price)}</b></div>
+            <div><span>7-day market</span><b>${usd(entry.market7d)}</b></div>
+            <div><span>Median sale</span><b>${usd(entry.median)}</b></div>
+            <div><span>Average sale</span><b>${usd(entry.average)}</b></div>
+            <div><span>Total sales</span><b>${entry.count ?? '—'}</b></div>
+            <div><span>Trend</span><b>${entry.trend ? esc(entry.trend) : '—'}</b></div>
+            <div><span>Last sale</span><b>${fmtDate(entry.lastSale)}</b></div>
+          </div>
+          <div class="panel-note">Individual sold listings aren't included in the API response for this grade — showing aggregate stats from recent eBay sales.</div>`;
+      };
+
+      btns.forEach((b) => b.addEventListener('click', () => !b.disabled && selectGrader(b.dataset.grader)));
+      select.addEventListener('change', () => {
+        const active = btns.find((b) => b.classList.contains('active'));
+        if (active) renderPanel(active.dataset.grader, select.value);
+      });
+
+      const first = GRADERS.find((g) => card.graded[g]);
+      if (first) selectGrader(first);
+      else { select.style.display = 'none'; panel.innerHTML = '<div class="panel-empty">No PSA/BGS/CGC sales data for this card.</div>'; }
+    });
+  }
+
+  function fmtDate(d) {
+    if (!d) return '—';
+    const t = new Date(d);
+    return isNaN(t) ? '—' : t.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   }
 </script>
 </body>
