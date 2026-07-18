@@ -222,6 +222,7 @@
   <nav class="topnav">
     <button type="button" class="nav-btn active" data-view="search">Market Search</button>
     <button type="button" class="nav-btn" data-view="portfolio">Portfolio</button>
+    <button type="button" class="nav-btn logout" id="logoutBtn" style="display:none">Log out</button>
   </nav>
 </header>
 
@@ -453,8 +454,17 @@
 
   /* ------------------------------ Navigation ------------------------------ */
 
+  // Show logout only when auth is on; send API 401s back to the login page.
+  fetch('/api/health').then((r) => r.json()).then((h) => {
+    if (h.authEnabled) document.getElementById('logoutBtn').style.display = '';
+  }).catch(() => {});
+  document.getElementById('logoutBtn').addEventListener('click', async () => {
+    try { await fetch('/api/logout', { method: 'POST' }); } catch {}
+    location.href = '/login.html';
+  });
+
   const views = { search: document.getElementById('view-search'), portfolio: document.getElementById('view-portfolio') };
-  document.querySelectorAll('.nav-btn').forEach((btn) => {
+  document.querySelectorAll('.nav-btn:not(.logout)').forEach((btn) => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.nav-btn').forEach((b) => b.classList.toggle('active', b === btn));
       Object.entries(views).forEach(([name, el]) => { el.style.display = name === btn.dataset.view ? '' : 'none'; });

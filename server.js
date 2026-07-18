@@ -15,6 +15,7 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs/promises');
+const crypto = require('crypto');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -447,9 +448,97 @@ async function currentUnitPrice(item) {
   return variant.market ?? null;
 }
 
+/* ------------------------------ Authentication ---------------------------- */
+// Single-user login. Set SITE_USERNAME and SITE_PASSWORD (Upsun variables) to
+// enable; if unset, the site is open (handy for local dev). Sessions are
+// HMAC-signed cookies. Set SESSION_SECRET too, or sessions reset on redeploy.
+
+const SITE_USERNAME = process.env.SITE_USERNAME || '';
+const SITE_PASSWORD = process.env.SITE_PASSWORD || '';
+const AUTH_ENABLED = !!(SITE_USERNAME && SITE_PASSWORD);
+const SESSION_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
+const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+const COOKIE_NAME = 'ppl_session';
+
+if (!AUTH_ENABLED) {
+  console.warn('Auth disabled — set SITE_USERNAME and SITE_PASSWORD to require login.');
+}
+
+const sign = (v) => crypto.createHmac('sha256', SESSION_SECRET).update(v).digest('hex');
+const makeToken = () => {
+  const exp = Date.now() + SESSION_TTL_MS;
+  return `${exp}.${sign(String(exp))}`;
+};
+
+function validToken(tok) {
+  if (!tok) return false;
+  const [exp, sig] = String(tok).split('.');
+  if (!exp || !sig) return false;
+  const expected = sign(exp);
+  const a = Buffer.from(sig);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return false;
+  return Number(exp) > Date.now();
+}
+
+function getCookie(req, name) {
+  for (const part of String(req.headers.cookie || '').split(';')) {
+    const i = part.indexOf('=');
+    if (i > -1 && part.slice(0, i).trim() === name) return decodeURIComponent(part.slice(i + 1).trim());
+  }
+  return null;
+}
+
+// Constant-time credential comparison (hash first so lengths always match).
+const safeEqual = (a, b) => crypto.timingSafeEqual(
+  crypto.createHash('sha256').update(String(a)).digest(),
+  crypto.createHash('sha256').update(String(b)).digest()
+);
+
+// Basic login throttle: max 10 attempts per IP per minute.
+const loginAttempts = new Map();
+function throttled(ip) {
+  const now = Date.now();
+  const rec = loginAttempts.get(ip) ?? { n: 0, t: now };
+  if (now - rec.t > 60000) { rec.n = 0; rec.t = now; }
+  rec.n++;
+  if (loginAttempts.size > 1000) loginAttempts.clear();
+  loginAttempts.set(ip, rec);
+  return rec.n > 10;
+}
+
 /* --------------------------------- Routes -------------------------------- */
 
 app.use(express.json());
+
+// Auth gate — everything except the login page/endpoint and health check.
+app.use((req, res, next) => {
+  if (!AUTH_ENABLED) return next();
+  if (req.path === '/login.html' || req.path === '/api/login' || req.path === '/api/health') return next();
+  if (validToken(getCookie(req, COOKIE_NAME))) return next();
+  if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'Not logged in.' });
+  return res.redirect('/login.html');
+});
+
+app.post('/api/login', (req, res) => {
+  if (!AUTH_ENABLED) return res.json({ ok: true });
+  const ip = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress || '?';
+  if (throttled(ip)) return res.status(429).json({ error: 'Too many attempts — wait a minute.' });
+  const { username, password } = req.body || {};
+  if (username && password && safeEqual(username, SITE_USERNAME) && safeEqual(password, SITE_PASSWORD)) {
+    const secure = req.secure || req.headers['x-forwarded-proto'] === 'https' ? '; Secure' : '';
+    res.setHeader('Set-Cookie',
+      `${COOKIE_NAME}=${makeToken()}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${Math.floor(SESSION_TTL_MS / 1000)}${secure}`);
+    return res.json({ ok: true });
+  }
+  res.status(401).json({ error: 'Invalid username or password.' });
+});
+
+app.post('/api/logout', (_req, res) => {
+  res.setHeader('Set-Cookie', `${COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`);
+  res.json({ ok: true });
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/api/portfolio', async (_req, res) => {
@@ -539,7 +628,7 @@ app.post('/api/portfolio/remove', async (req, res) => {
 });
 
 app.get('/api/health', (_req, res) => {
-  res.json({ ok: true, demoMode: !API_KEY });
+  res.json({ ok: true, demoMode: !API_KEY, authEnabled: AUTH_ENABLED });
 });
 
 app.get('/api/search', async (req, res) => {
