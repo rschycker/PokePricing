@@ -273,7 +273,7 @@
               ${esc(card.set)}${card.number ? ' · #' + esc(card.number) + (card.totalSetNumber ? '/' + esc(card.totalSetNumber) : '') : ''}<br>
               ${esc(card.rarity)}
             </div>
-            <div class="market">${usd(v.market)}${trendBadge(card.history)}<small>TCGplayer market price</small></div>
+            <div class="market">${usd(v.market)}${trendBadge(v.history || card.history)}<small>TCGplayer market price</small></div>
             ${v.printing ? `<span class="printing">${esc(v.printing)}</span>` : ''}
           </div>
         </div>

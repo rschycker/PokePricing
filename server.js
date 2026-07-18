@@ -154,6 +154,11 @@ function normalizeCard(raw) {
 
   card.history = parseHistory(raw);
   card.graded = parseGraded(raw);
+  // Per-printing trend where history is keyed by printing (older sets with
+  // 1st Edition / Unlimited variants).
+  for (const v of card.variants) {
+    v.history = parseHistory(raw, v.printing) ?? card.history;
+  }
 
   return card;
 }
@@ -174,10 +179,11 @@ function normalizeSealed(raw) {
     tcgPlayerUrl: raw.tcgPlayerUrl ?? (raw.tcgPlayerId
       ? `https://www.tcgplayer.com/product/${raw.tcgPlayerId}`
       : null),
-    lastUpdated: prices.lastUpdated ?? raw.updatedAt ?? null,
+    lastUpdated: prices.lastUpdated ?? raw.lastScrapedAt ?? raw.updatedAt ?? null,
     variants: [{
       printing: raw.productType ?? 'Sealed',
-      market: toNumber(prices.market ?? prices.marketPrice ?? raw.marketPrice),
+      // Live shape uses a bare `unopenedPrice` number on the product itself.
+      market: toNumber(prices.market ?? prices.marketPrice ?? raw.unopenedPrice ?? raw.marketPrice),
       low: toNumber(prices.low ?? prices.lowPrice ?? raw.lowPrice),
       conditions: null,
     }],
@@ -197,8 +203,13 @@ function toMillis(v) {
   return 0;
 }
 
+const normKey = (s) => String(s ?? '').toLowerCase().replace(/[\s_-]/g, '');
+
 // Compute 7/30-day % change from a price history payload (shape-tolerant).
-function parseHistory(raw) {
+// Pass `printing` to scope the trend to one printing (e.g. "1st Edition
+// Holofoil" vs "Unlimited Holofoil" on older sets), since PPT keys history
+// as "Near Mint 1st Edition Holofoil", "Near Mint Unlimited Holofoil", etc.
+function parseHistory(raw, printing) {
   const h = raw.priceHistory ?? raw.history ?? null;
   let points = Array.isArray(h) ? h
     : Array.isArray(h?.data) ? h.data
@@ -208,7 +219,11 @@ function parseHistory(raw) {
   // PPT live shape: { conditions: { "Near Mint": { history: [{date, market, volume}] }, ... } }
   // Use Near Mint history for the trend; fall back to the first condition present.
   if (!points && h?.conditions && typeof h.conditions === 'object') {
-    const keys = Object.keys(h.conditions);
+    let keys = Object.keys(h.conditions);
+    if (printing) {
+      const scoped = keys.filter((k) => normKey(k).includes(normKey(printing)));
+      if (scoped.length) keys = scoped;
+    }
     const nmKey = keys.find((k) => conditionCode(k) === 'NM') ?? keys[0];
     points = h.conditions[nmKey]?.history;
   }
