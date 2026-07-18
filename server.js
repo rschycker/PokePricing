@@ -158,6 +158,34 @@ function normalizeCard(raw) {
   return card;
 }
 
+// Normalize a sealed product (booster box, ETB, etc.) into the same shape
+// the UI uses for cards. Sealed products have no conditions or graded data.
+function normalizeSealed(raw) {
+  const prices = raw.prices || {};
+  return {
+    id: raw.tcgPlayerId ?? raw.id ?? null,
+    sealed: true,
+    name: raw.name ?? 'Unknown product',
+    set: raw.setName ?? raw.set ?? '',
+    number: '',
+    totalSetNumber: null,
+    rarity: raw.productType ?? 'Sealed Product',
+    image: raw.imageCdnUrl400 ?? raw.imageUrl ?? raw.image ?? null,
+    tcgPlayerUrl: raw.tcgPlayerUrl ?? (raw.tcgPlayerId
+      ? `https://www.tcgplayer.com/product/${raw.tcgPlayerId}`
+      : null),
+    lastUpdated: prices.lastUpdated ?? raw.updatedAt ?? null,
+    variants: [{
+      printing: raw.productType ?? 'Sealed',
+      market: toNumber(prices.market ?? prices.marketPrice ?? raw.marketPrice),
+      low: toNumber(prices.low ?? prices.lowPrice ?? raw.lowPrice),
+      conditions: null,
+    }],
+    history: parseHistory(raw),
+    graded: null,
+  };
+}
+
 /* ----------------------- History & graded-sale parsing --------------------- */
 
 function toMillis(v) {
@@ -315,6 +343,26 @@ const DEMO_CARDS = [
   },
 ];
 
+const DEMO_SEALED = [
+  {
+    tcgPlayerId: '516323',
+    name: 'Obsidian Flames Booster Box (Demo Data)',
+    setName: 'Obsidian Flames',
+    productType: 'Booster Box',
+    prices: { market: 129.99, low: 118.5, lastUpdated: new Date().toISOString() },
+    priceHistory: {
+      conditions: {
+        Sealed: {
+          history: [
+            { date: new Date(Date.now() - 30 * 86400000).toISOString(), market: 121.0 },
+            { date: new Date().toISOString(), market: 129.99 },
+          ],
+        },
+      },
+    },
+  },
+];
+
 /* --------------------------------- Routes -------------------------------- */
 
 app.use(express.static(path.join(__dirname, 'public')));
@@ -331,13 +379,14 @@ app.get('/api/search', async (req, res) => {
 
   // Demo mode: no API key configured.
   if (!API_KEY) {
-    const results = DEMO_CARDS.filter((c) =>
-      c.name.toLowerCase().includes(q.toLowerCase())
-    ).map(normalizeCard);
+    const results = [
+      ...DEMO_CARDS.filter((c) => c.name.toLowerCase().includes(q.toLowerCase())).map(normalizeCard),
+      ...DEMO_SEALED.filter((s) => s.name.toLowerCase().includes(q.toLowerCase())).map(normalizeSealed),
+    ];
     return res.json({
       demoMode: true,
       note: 'PPT_API_KEY is not set — showing sample data. Add your PokemonPriceTracker API key to get live TCGplayer prices.',
-      results: results.length ? results : DEMO_CARDS.map(normalizeCard),
+      results: results.length ? results : [...DEMO_CARDS.map(normalizeCard), ...DEMO_SEALED.map(normalizeSealed)],
     });
   }
 
@@ -346,14 +395,23 @@ app.get('/api/search', async (req, res) => {
   if (cached) return res.json(cached);
 
   try {
+    const headers = { Authorization: `Bearer ${API_KEY}` };
     // includeHistory/includeEbay require the paid API plan (3 credits per card).
-    const url = `${API_BASE}/cards?search=${encodeURIComponent(q)}&limit=12&includeHistory=true&includeEbay=true&days=30`;
-    const upstream = await fetch(url, {
-      headers: { Authorization: `Bearer ${API_KEY}` },
-    });
+    const cardsUrl = `${API_BASE}/cards?search=${encodeURIComponent(q)}&limit=12&includeHistory=true&includeEbay=true&days=30`;
+    const sealedUrl = `${API_BASE}/sealed-products?search=${encodeURIComponent(q)}&limit=6&includeHistory=true&days=30`;
 
+    const [cardsRes, sealedRes] = await Promise.allSettled([
+      fetch(cardsUrl, { headers }),
+      fetch(sealedUrl, { headers }),
+    ]);
+
+    if (cardsRes.status === 'rejected') {
+      console.error('Card search failed:', cardsRes.reason);
+      return res.status(502).json({ error: 'Could not reach the pricing API.' });
+    }
+    const upstream = cardsRes.value;
     if (upstream.status === 429) {
-      return res.status(429).json({ error: 'Rate limit reached on the pricing API. Try again in a minute (free tier: 100 credits/day).' });
+      return res.status(429).json({ error: 'Rate limit reached on the pricing API. Try again in a minute.' });
     }
     if (upstream.status === 401) {
       return res.status(502).json({ error: 'Pricing API rejected the API key. Check PPT_API_KEY.' });
@@ -364,9 +422,24 @@ app.get('/api/search', async (req, res) => {
 
     const body = await upstream.json();
     const rawCards = Array.isArray(body.data) ? body.data : Array.isArray(body) ? body : [];
+    const results = rawCards.map(normalizeCard);
+
+    // Sealed products: best-effort — a failure here shouldn't break card search.
+    if (sealedRes.status === 'fulfilled' && sealedRes.value.ok) {
+      try {
+        const sealedBody = await sealedRes.value.json();
+        const rawSealed = Array.isArray(sealedBody.data) ? sealedBody.data : [];
+        results.push(...rawSealed.map(normalizeSealed));
+      } catch (err) {
+        console.error('Sealed products parse failed:', err.message);
+      }
+    } else if (sealedRes.status === 'fulfilled' && !sealedRes.value.ok && sealedRes.value.status !== 404) {
+      console.error(`Sealed products search HTTP ${sealedRes.value.status}`);
+    }
+
     const payload = {
       demoMode: false,
-      results: rawCards.map(normalizeCard),
+      results,
       creditsRemaining: upstream.headers.get('X-RateLimit-Daily-Remaining'),
     };
     cacheSet(cacheKey, payload);

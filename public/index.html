@@ -145,6 +145,11 @@
   .stats div b { font-size: .88rem; }
   .panel-note { color: var(--muted); font-size: .72rem; margin-top: 8px; line-height: 1.4; }
   .panel-empty { color: var(--muted); }
+  .sealed-badge {
+    display: inline-block; background: var(--accent2); color: #fff;
+    border-radius: 6px; padding: 1px 7px; font-size: .7rem; font-weight: 700;
+    vertical-align: middle;
+  }
   .card-footer { margin-top: auto; padding: 10px 16px 14px; }
   .card-footer a { color: var(--accent2); font-size: .82rem; text-decoration: none; }
   .card-footer a:hover { text-decoration: underline; }
@@ -165,7 +170,7 @@
 
 <div class="container">
   <form class="search-row" id="searchForm">
-    <input id="searchInput" type="text" placeholder="Search a card… e.g. Charizard, Pikachu, Umbreon VMAX" autocomplete="off" autofocus />
+    <input id="searchInput" type="text" placeholder="Search cards or sealed… e.g. Charizard, Umbreon VMAX, booster box" autocomplete="off" autofocus />
     <button type="submit">Search</button>
   </form>
   <div class="status" id="status"></div>
@@ -263,7 +268,7 @@
             ? `<img src="${esc(card.image)}" alt="${esc(card.name)}" loading="lazy" onerror="this.outerHTML='<div class=placeholder>🃏</div>'">`
             : '<div class="placeholder">🃏</div>'}
           <div>
-            <h3>${esc(card.name)}</h3>
+            <h3>${card.sealed ? '<span class="sealed-badge">📦 Sealed</span> ' : ''}${esc(card.name)}</h3>
             <div class="meta">
               ${esc(card.set)}${card.number ? ' · #' + esc(card.number) + (card.totalSetNumber ? '/' + esc(card.totalSetNumber) : '') : ''}<br>
               ${esc(card.rarity)}
@@ -272,10 +277,12 @@
             ${v.printing ? `<span class="printing">${esc(v.printing)}</span>` : ''}
           </div>
         </div>
-        <table>
+        ${card.sealed
+          ? `<table><tbody><tr><td class="cond-name" style="padding:8px 16px 14px;border-top:1px solid var(--border)">Sealed product — condition pricing not applicable${v.low !== null && v.low !== undefined ? ' · lowest listing ' + usd(v.low).replace(/<[^>]*>/g, '') : ''}</td></tr></tbody></table>`
+          : `<table>
           <thead><tr><th>Condition</th><th style="text-align:right">Price</th></tr></thead>
           <tbody>${hasConds ? rows + footnote : `<tr><td colspan="2" class="cond-name" style="padding-bottom:14px">Condition breakdown not available for this card${v.low !== null && v.low !== undefined ? ' · lowest listing ' + usd(v.low).replace(/<[^>]*>/g, '') : ''}</td></tr>`}</tbody>
-        </table>
+        </table>`}
         ${vi === 0 ? gradedSection(card, cardIdx) : ''}
         <div class="card-footer">
           ${card.tcgPlayerUrl ? `<a href="${esc(card.tcgPlayerUrl)}" target="_blank" rel="noopener">View on TCGplayer →</a>` : ''}
