@@ -150,6 +150,59 @@
     border-radius: 6px; padding: 1px 7px; font-size: .7rem; font-weight: 700;
     vertical-align: middle;
   }
+  .topnav { display: flex; justify-content: center; gap: 8px; margin-top: 16px; }
+  .nav-btn {
+    padding: 8px 22px; border-radius: 20px; border: 1px solid var(--border);
+    background: var(--panel); color: var(--text); font-weight: 700; font-size: .9rem;
+    cursor: pointer;
+  }
+  .nav-btn.active { background: var(--accent); color: #1a1f3a; border-color: var(--accent); }
+  .add-pf { display: flex; gap: 6px; padding: 0 16px 12px; align-items: center; }
+  .add-pf select, .add-pf input {
+    background: var(--panel2); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: 6px 8px; font-size: .8rem;
+  }
+  .add-pf input { width: 58px; }
+  .add-pf button {
+    flex: 1; padding: 6px 10px; border-radius: 8px; border: none; cursor: pointer;
+    background: var(--accent2); color: #fff; font-weight: 700; font-size: .8rem;
+  }
+  .add-pf button:hover { filter: brightness(1.15); }
+  .pf-header {
+    display: flex; justify-content: space-between; align-items: center;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
+    padding: 16px 20px; margin-bottom: 16px;
+  }
+  .pf-total-label { color: var(--muted); font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; }
+  .pf-total { font-size: 1.8rem; font-weight: 800; color: var(--green); }
+  .pf-header button {
+    padding: 10px 18px; border-radius: 10px; border: 1px solid var(--border);
+    background: var(--panel2); color: var(--text); font-weight: 700; cursor: pointer;
+  }
+  .pf-item {
+    display: flex; gap: 12px; align-items: center;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    padding: 10px 14px; margin-bottom: 10px;
+  }
+  .pf-item img, .pf-item .placeholder {
+    width: 44px; height: 62px; object-fit: contain; background: var(--panel2);
+    border-radius: 6px; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  }
+  .pf-info { flex: 1; min-width: 0; }
+  .pf-info .name { font-weight: 700; font-size: .92rem; }
+  .pf-info .sub { color: var(--muted); font-size: .76rem; margin-top: 2px; }
+  .pf-qty { display: flex; align-items: center; gap: 6px; }
+  .pf-qty button {
+    width: 26px; height: 26px; border-radius: 6px; border: 1px solid var(--border);
+    background: var(--panel2); color: var(--text); cursor: pointer; font-weight: 700;
+  }
+  .pf-prices { text-align: right; min-width: 110px; }
+  .pf-prices .unit { color: var(--muted); font-size: .74rem; }
+  .pf-prices .line { color: var(--green); font-weight: 800; font-size: .95rem; }
+  .pf-remove {
+    border: none; background: none; color: #f87171; cursor: pointer; font-size: 1.1rem;
+    padding: 4px 6px;
+  }
   .card-footer { margin-top: auto; padding: 10px 16px 14px; }
   .card-footer a { color: var(--accent2); font-size: .82rem; text-decoration: none; }
   .card-footer a:hover { text-decoration: underline; }
@@ -166,18 +219,38 @@
 <header>
   <h1>Poke<span>Price</span> Lookup</h1>
   <p>TCGplayer market pricing by card condition &middot; updated daily</p>
+  <nav class="topnav">
+    <button type="button" class="nav-btn active" data-view="search">Market Search</button>
+    <button type="button" class="nav-btn" data-view="portfolio">Portfolio</button>
+  </nav>
 </header>
 
 <div class="container">
-  <form class="search-row" id="searchForm">
-    <input id="searchInput" type="text" placeholder="Search cards or sealed… e.g. Charizard, Umbreon VMAX, booster box" autocomplete="off" autofocus />
-    <button type="submit">Search</button>
-  </form>
-  <div class="status" id="status"></div>
-  <div class="banner" id="demoBanner"></div>
-  <div class="spinner" id="spinner"></div>
-  <div class="grid" id="results"></div>
-  <div class="empty" id="empty">Search for a Pokemon card to see its current market pricing.</div>
+  <section id="view-search">
+    <form class="search-row" id="searchForm">
+      <input id="searchInput" type="text" placeholder="Search cards or sealed… e.g. Charizard, Umbreon VMAX, booster box" autocomplete="off" autofocus />
+      <button type="submit">Search</button>
+    </form>
+    <div class="status" id="status"></div>
+    <div class="banner" id="demoBanner"></div>
+    <div class="spinner" id="spinner"></div>
+    <div class="grid" id="results"></div>
+    <div class="empty" id="empty">Search for a Pokemon card to see its current market pricing.</div>
+  </section>
+
+  <section id="view-portfolio" style="display:none">
+    <div class="pf-header">
+      <div>
+        <div class="pf-total-label">Total portfolio value</div>
+        <div class="pf-total" id="pfTotal">—</div>
+      </div>
+      <button type="button" id="pfRefresh">Refresh prices</button>
+    </div>
+    <div class="status" id="pfStatus"></div>
+    <div class="spinner" id="pfSpinner"></div>
+    <div id="pfList"></div>
+    <div class="empty" id="pfEmpty" style="display:none">Your portfolio is empty. Find items in Market Search and click "+ Portfolio".</div>
+  </section>
 </div>
 
 <script>
@@ -284,6 +357,11 @@
           <tbody>${hasConds ? rows + footnote : `<tr><td colspan="2" class="cond-name" style="padding-bottom:14px">Condition breakdown not available for this card${v.low !== null && v.low !== undefined ? ' · lowest listing ' + usd(v.low).replace(/<[^>]*>/g, '') : ''}</td></tr>`}</tbody>
         </table>`}
         ${vi === 0 ? gradedSection(card, cardIdx) : ''}
+        <div class="add-pf" data-card="${cardIdx}" data-variant="${vi}">
+          ${card.sealed ? '' : `<select class="pf-cond" aria-label="Condition">${Object.keys(CONDITION_LABELS).map((c) => `<option value="${c}">${CONDITION_LABELS[c]}</option>`).join('')}</select>`}
+          <input class="pf-qty-in" type="number" min="1" max="999" value="1" aria-label="Quantity">
+          <button type="button" class="pf-add">+ Portfolio</button>
+        </div>
         <div class="card-footer">
           ${card.tcgPlayerUrl ? `<a href="${esc(card.tcgPlayerUrl)}" target="_blank" rel="noopener">View on TCGplayer →</a>` : ''}
         </div>
@@ -372,6 +450,111 @@
     const t = new Date(d);
     return isNaN(t) ? '—' : t.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   }
+
+  /* ------------------------------ Navigation ------------------------------ */
+
+  const views = { search: document.getElementById('view-search'), portfolio: document.getElementById('view-portfolio') };
+  document.querySelectorAll('.nav-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.nav-btn').forEach((b) => b.classList.toggle('active', b === btn));
+      Object.entries(views).forEach(([name, el]) => { el.style.display = name === btn.dataset.view ? '' : 'none'; });
+      if (btn.dataset.view === 'portfolio') loadPortfolio();
+    });
+  });
+
+  /* --------------------------- Add to portfolio --------------------------- */
+
+  grid.addEventListener('click', async (e) => {
+    const btn = e.target.closest('.pf-add');
+    if (!btn) return;
+    const wrap = btn.closest('.add-pf');
+    const card = cardsData[Number(wrap.dataset.card)];
+    const variant = card?.variants[Number(wrap.dataset.variant)];
+    if (!card || !variant) return;
+    const qty = Math.max(1, Math.min(999, Number(wrap.querySelector('.pf-qty-in').value) || 1));
+    const condition = card.sealed ? 'SEALED' : wrap.querySelector('.pf-cond').value;
+    btn.disabled = true;
+    btn.textContent = 'Adding…';
+    try {
+      const res = await fetch('/api/portfolio', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: card.id, sealed: !!card.sealed, name: card.name, set: card.set, number: card.number,
+          printing: variant.printing, condition, qty, image: card.image, tcgPlayerUrl: card.tcgPlayerUrl,
+        }),
+      });
+      btn.textContent = res.ok ? '✓ Added' : 'Failed';
+    } catch {
+      btn.textContent = 'Failed';
+    }
+    setTimeout(() => { btn.textContent = '+ Portfolio'; btn.disabled = false; }, 1500);
+  });
+
+  /* ------------------------------- Portfolio ------------------------------ */
+
+  const pfList = document.getElementById('pfList');
+  const pfTotal = document.getElementById('pfTotal');
+  const pfStatus = document.getElementById('pfStatus');
+  const pfSpinner = document.getElementById('pfSpinner');
+  const pfEmpty = document.getElementById('pfEmpty');
+  document.getElementById('pfRefresh').addEventListener('click', loadPortfolio);
+
+  const CONDITION_SHORT = { NM: 'Near Mint', LP: 'Lightly Played', MP: 'Moderately Played', HP: 'Heavily Played', DM: 'Damaged', SEALED: 'Sealed' };
+
+  async function loadPortfolio() {
+    pfSpinner.style.display = 'block';
+    pfStatus.textContent = '';
+    try {
+      const res = await fetch('/api/portfolio');
+      const data = await res.json();
+      pfSpinner.style.display = 'none';
+      if (!res.ok) { pfStatus.textContent = data.error || 'Could not load portfolio.'; return; }
+      pfTotal.textContent = '$' + Number(data.totalValue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      pfEmpty.style.display = data.items.length ? 'none' : 'block';
+      pfList.innerHTML = data.items.map((item) => `
+        <div class="pf-item" data-key="${esc(item.key)}">
+          ${item.image ? `<img src="${esc(item.image)}" alt="" loading="lazy">` : '<div class="placeholder">🃏</div>'}
+          <div class="pf-info">
+            <div class="name">${item.sealed ? '<span class="sealed-badge">📦</span> ' : ''}${esc(item.name)}</div>
+            <div class="sub">${esc(item.set)}${item.number ? ' · #' + esc(item.number) : ''} · ${esc(item.printing)} · ${esc(CONDITION_SHORT[item.condition] || item.condition)}</div>
+          </div>
+          <div class="pf-qty">
+            <button type="button" class="qty-dec" aria-label="Decrease">−</button>
+            <span>${item.qty}</span>
+            <button type="button" class="qty-inc" aria-label="Increase">+</button>
+          </div>
+          <div class="pf-prices">
+            <div class="line">${usd(item.lineValue)}</div>
+            <div class="unit">${usd(item.unitPrice).replace(/<[^>]*>/g, '—')} each</div>
+          </div>
+          <button type="button" class="pf-remove" aria-label="Remove" title="Remove">✕</button>
+        </div>`).join('');
+      window.__pfItems = Object.fromEntries(data.items.map((i) => [i.key, i]));
+    } catch {
+      pfSpinner.style.display = 'none';
+      pfStatus.textContent = 'Network error — please try again.';
+    }
+  }
+
+  pfList.addEventListener('click', async (e) => {
+    const row = e.target.closest('.pf-item');
+    if (!row) return;
+    const key = row.dataset.key;
+    const item = window.__pfItems?.[key];
+    if (!item) return;
+    let action = null;
+    if (e.target.closest('.qty-inc')) action = { url: '/api/portfolio/update', body: { key, qty: item.qty + 1 } };
+    else if (e.target.closest('.qty-dec')) action = { url: '/api/portfolio/update', body: { key, qty: item.qty - 1 } };
+    else if (e.target.closest('.pf-remove')) action = { url: '/api/portfolio/remove', body: { key } };
+    if (!action) return;
+    try {
+      await fetch(action.url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(action.body) });
+      loadPortfolio();
+    } catch {
+      pfStatus.textContent = 'Update failed — please try again.';
+    }
+  });
 </script>
 </body>
 </html>

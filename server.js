@@ -14,6 +14,7 @@
 
 const express = require('express');
 const path = require('path');
+const fs = require('fs/promises');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -378,9 +379,164 @@ const DEMO_SEALED = [
   },
 ];
 
+/* ------------------------------- Portfolio -------------------------------- */
+// Shared, server-side portfolio stored as JSON on an Upsun storage mount
+// (./data). Writes are serialized through a promise chain to avoid races.
+
+const DATA_DIR = process.env.PORTFOLIO_DIR || path.join(__dirname, 'data');
+const PORTFOLIO_FILE = path.join(DATA_DIR, 'portfolio.json');
+const VALID_CONDITIONS = [...CONDITIONS, 'SEALED'];
+
+async function readPortfolio() {
+  try {
+    const parsed = JSON.parse(await fs.readFile(PORTFOLIO_FILE, 'utf8'));
+    return Array.isArray(parsed.items) ? parsed : { items: [] };
+  } catch {
+    return { items: [] };
+  }
+}
+
+let writeChain = Promise.resolve();
+function withPortfolio(mutator) {
+  const run = writeChain.then(async () => {
+    const pf = await readPortfolio();
+    mutator(pf);
+    await fs.mkdir(DATA_DIR, { recursive: true });
+    await fs.writeFile(PORTFOLIO_FILE, JSON.stringify(pf, null, 2));
+    return pf;
+  });
+  writeChain = run.catch(() => {});
+  return run;
+}
+
+const itemKey = (i) => [i.id, i.printing || '', i.condition || ''].join('|');
+
+// Current unit price for a portfolio item (cached 6h to conserve credits).
+async function currentUnitPrice(item) {
+  const ck = `pf:${item.sealed ? 's' : 'c'}:${item.id}`;
+  let norm = cacheGet(ck);
+  if (!norm) {
+    if (!API_KEY) {
+      const demo = item.sealed
+        ? DEMO_SEALED.find((d) => String(d.tcgPlayerId) === String(item.id))
+        : DEMO_CARDS.find((d) => String(d.tcgPlayerId) === String(item.id));
+      norm = demo ? (item.sealed ? normalizeSealed(demo) : normalizeCard(demo)) : null;
+    } else {
+      try {
+        const url = item.sealed
+          ? `${API_BASE}/sealed-products?tcgPlayerId=${encodeURIComponent(item.id)}`
+          : `${API_BASE}/cards?tcgPlayerId=${encodeURIComponent(item.id)}`;
+        const resp = await fetch(url, { headers: { Authorization: `Bearer ${API_KEY}` } });
+        if (resp.ok) {
+          const body = await resp.json();
+          const raw = Array.isArray(body.data) ? body.data[0] : body.data;
+          if (raw) norm = item.sealed ? normalizeSealed(raw) : normalizeCard(raw);
+        }
+      } catch (err) {
+        console.error(`Portfolio price fetch failed for ${item.id}:`, err.message);
+      }
+    }
+    if (norm) cacheSet(ck, norm);
+  }
+  if (!norm) return null;
+  const variant = norm.variants.find((v) => normKey(v.printing) === normKey(item.printing)) ?? norm.variants[0];
+  if (!variant) return null;
+  if (item.condition && item.condition !== 'SEALED') {
+    return variant.conditions?.[item.condition] ?? variant.market ?? null;
+  }
+  return variant.market ?? null;
+}
+
 /* --------------------------------- Routes -------------------------------- */
 
+app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
+
+app.get('/api/portfolio', async (_req, res) => {
+  try {
+    const pf = await readPortfolio();
+    const items = await Promise.all(pf.items.map(async (item) => {
+      const unitPrice = await currentUnitPrice(item);
+      return { ...item, key: itemKey(item), unitPrice, lineValue: unitPrice !== null ? Math.round(unitPrice * item.qty * 100) / 100 : null };
+    }));
+    const totalValue = Math.round(items.reduce((sum, i) => sum + (i.lineValue ?? 0), 0) * 100) / 100;
+    res.json({ items, totalValue, demoMode: !API_KEY });
+  } catch (err) {
+    console.error('Portfolio read failed:', err);
+    res.status(500).json({ error: 'Could not load portfolio.' });
+  }
+});
+
+app.post('/api/portfolio', async (req, res) => {
+  const { id, sealed, name, set, number, printing, condition, qty, image, tcgPlayerUrl } = req.body || {};
+  const quantity = Math.floor(Number(qty));
+  const cond = sealed ? 'SEALED' : String(condition || '').toUpperCase();
+  if (!id || !name || !Number.isFinite(quantity) || quantity < 1 || quantity > 999) {
+    return res.status(400).json({ error: 'Invalid item.' });
+  }
+  if (!VALID_CONDITIONS.includes(cond)) {
+    return res.status(400).json({ error: 'Invalid condition.' });
+  }
+  try {
+    const item = {
+      id: String(id).slice(0, 40),
+      sealed: !!sealed,
+      name: String(name).slice(0, 200),
+      set: String(set || '').slice(0, 100),
+      number: String(number || '').slice(0, 20),
+      printing: String(printing || '').slice(0, 60),
+      condition: cond,
+      qty: quantity,
+      image: typeof image === 'string' && image.startsWith('https://') ? image.slice(0, 300) : null,
+      tcgPlayerUrl: typeof tcgPlayerUrl === 'string' && tcgPlayerUrl.startsWith('https://www.tcgplayer.com/') ? tcgPlayerUrl : null,
+      addedAt: new Date().toISOString(),
+    };
+    await withPortfolio((pf) => {
+      const existing = pf.items.find((i) => itemKey(i) === itemKey(item));
+      if (existing) existing.qty = Math.min(existing.qty + item.qty, 999);
+      else pf.items.push(item);
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Portfolio add failed:', err);
+    res.status(500).json({ error: 'Could not save portfolio.' });
+  }
+});
+
+app.post('/api/portfolio/update', async (req, res) => {
+  const { key, qty } = req.body || {};
+  const quantity = Math.floor(Number(qty));
+  if (!key || !Number.isFinite(quantity) || quantity > 999) {
+    return res.status(400).json({ error: 'Invalid update.' });
+  }
+  try {
+    await withPortfolio((pf) => {
+      if (quantity < 1) pf.items = pf.items.filter((i) => itemKey(i) !== key);
+      else {
+        const item = pf.items.find((i) => itemKey(i) === key);
+        if (item) item.qty = quantity;
+      }
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Portfolio update failed:', err);
+    res.status(500).json({ error: 'Could not update portfolio.' });
+  }
+});
+
+app.post('/api/portfolio/remove', async (req, res) => {
+  const { key } = req.body || {};
+  if (!key) return res.status(400).json({ error: 'Missing key.' });
+  try {
+    await withPortfolio((pf) => {
+      pf.items = pf.items.filter((i) => itemKey(i) !== key);
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Portfolio remove failed:', err);
+    res.status(500).json({ error: 'Could not update portfolio.' });
+  }
+});
 
 app.get('/api/health', (_req, res) => {
   res.json({ ok: true, demoMode: !API_KEY });
