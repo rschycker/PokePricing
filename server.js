@@ -180,12 +180,22 @@ function normalizeCard(raw) {
       for (const k of keys) {
         const code = conditionCode(k);
         if (!code) continue;
-        const conds = (variant.conditions ??= {});
-        if (conds[code] !== undefined) continue;
         const hist = histConds[k]?.history;
-        const last = Array.isArray(hist) && hist.length ? hist[hist.length - 1] : null;
-        const price = toNumber(last?.market ?? last?.price);
-        if (price !== null) conds[code] = price;
+        if (!Array.isArray(hist) || hist.length === 0) continue;
+        const lastP = toNumber(hist[hist.length - 1]?.market ?? hist[hist.length - 1]?.price);
+        const conds = (variant.conditions ??= {});
+        if (conds[code] === undefined && lastP !== null) conds[code] = lastP;
+        // Day-over-day change per condition (last two history points).
+        const changes = (variant.conditionChanges ??= {});
+        if (changes[code] === undefined && hist.length >= 2) {
+          const prevP = toNumber(hist[hist.length - 2]?.market ?? hist[hist.length - 2]?.price);
+          if (prevP !== null && lastP !== null && prevP !== 0) {
+            changes[code] = {
+              dollar: Math.round((lastP - prevP) * 100) / 100,
+              pct: Math.round(((lastP - prevP) / prevP) * 1000) / 10,
+            };
+          }
+        }
       }
     }
   }
@@ -341,11 +351,19 @@ const DEMO_CARDS = [
     rarity: 'Holo Rare',
     printing: 'Holofoil (Unlimited)',
     prices: { market: 425.0, low: 300.0, conditions: { near_mint: 425.0, lightly_played: 340.11, moderately_played: 262.5, heavily_played: 191.25, damaged: 127.5 } },
-    priceHistory: [
-      { date: new Date(Date.now() - 30 * 86400000).toISOString(), price: 401.5 },
-      { date: new Date(Date.now() - 7 * 86400000).toISOString(), price: 418.0 },
-      { date: new Date().toISOString(), price: 425.0 },
-    ],
+    priceHistory: {
+      conditions: {
+        'Near Mint': { history: [
+          { date: new Date(Date.now() - 30 * 86400000).toISOString(), market: 401.5 },
+          { date: new Date(Date.now() - 86400000).toISOString(), market: 418.0 },
+          { date: new Date().toISOString(), market: 425.0 },
+        ] },
+        'Lightly Played': { history: [
+          { date: new Date(Date.now() - 86400000).toISOString(), market: 344.5 },
+          { date: new Date().toISOString(), market: 340.11 },
+        ] },
+      },
+    },
     ebay: {
       salesByGrade: {
         psa10: {
@@ -455,7 +473,7 @@ async function currentUnitPrice(item) {
         // includeHistory is required to get per-condition sale prices —
         // prices.variants alone only covers conditions with live listings.
         const url = item.sealed
-          ? `${API_BASE}/sealed-products?tcgPlayerId=${encodeURIComponent(item.id)}`
+          ? `${API_BASE}/sealed-products?tcgPlayerId=${encodeURIComponent(item.id)}&includeHistory=true&days=30`
           : `${API_BASE}/cards?tcgPlayerId=${encodeURIComponent(item.id)}&includeHistory=true&days=30`;
         const resp = await fetch(url, { headers: { Authorization: `Bearer ${API_KEY}` } });
         if (resp.ok) {
@@ -469,16 +487,23 @@ async function currentUnitPrice(item) {
     }
     if (norm) cacheSet(ck, norm);
   }
-  if (!norm) return { price: null, basis: null };
+  if (!norm) return { price: null, basis: null, change: null };
   const variant = norm.variants.find((v) => normKey(v.printing) === normKey(item.printing)) ?? norm.variants[0];
-  if (!variant) return { price: null, basis: null };
+  if (!variant) return { price: null, basis: null, change: null };
   if (item.condition && item.condition !== 'SEALED') {
     const condPrice = variant.conditions?.[item.condition];
-    if (condPrice !== undefined && condPrice !== null) return { price: condPrice, basis: 'condition' };
+    const change = variant.conditionChanges?.[item.condition] ?? null;
+    if (condPrice !== undefined && condPrice !== null) return { price: condPrice, basis: 'condition', change };
     // No current sales data for this condition — fall back to market price.
-    return { price: variant.market ?? null, basis: variant.market != null ? 'market' : null };
+    return { price: variant.market ?? null, basis: variant.market != null ? 'market' : null, change: variant.conditionChanges?.NM ?? null };
   }
-  return { price: variant.market ?? null, basis: variant.market != null ? 'market' : null };
+  // Sealed: derive change from item-level history (percent), dollar approximated.
+  const price = variant.market ?? null;
+  const pct = norm.history?.change7d ?? null;
+  const change = price !== null && pct !== null
+    ? { pct, dollar: Math.round((price - price / (1 + pct / 100)) * 100) / 100 }
+    : null;
+  return { price, basis: price != null ? 'market' : null, change };
 }
 
 /* ------------------------------ Authentication ---------------------------- */
@@ -578,8 +603,16 @@ app.get('/api/portfolio', async (_req, res) => {
   try {
     const pf = await readPortfolio();
     const items = await Promise.all(pf.items.map(async (item) => {
-      const { price: unitPrice, basis: priceBasis } = await currentUnitPrice(item);
-      return { ...item, key: itemKey(item), unitPrice, priceBasis, lineValue: unitPrice !== null ? Math.round(unitPrice * item.qty * 100) / 100 : null };
+      const { price: unitPrice, basis: priceBasis, change } = await currentUnitPrice(item);
+      return {
+        ...item,
+        key: itemKey(item),
+        unitPrice,
+        priceBasis,
+        unitChange: change?.dollar ?? null,
+        unitChangePct: change?.pct ?? null,
+        lineValue: unitPrice !== null ? Math.round(unitPrice * item.qty * 100) / 100 : null,
+      };
     }));
     const totalValue = Math.round(items.reduce((sum, i) => sum + (i.lineValue ?? 0), 0) * 100) / 100;
     res.json({ items, totalValue, demoMode: !API_KEY });

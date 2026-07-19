@@ -203,6 +203,44 @@
     border: none; background: none; color: #f87171; cursor: pointer; font-size: 1.1rem;
     padding: 4px 6px;
   }
+  .pf-controls { display: flex; gap: 8px; margin-bottom: 10px; }
+  .pf-controls input[type="text"] {
+    flex: 1; padding: 10px 14px; background: var(--panel); color: var(--text);
+    border: 1px solid var(--border); border-radius: 10px; font-size: .9rem; outline: none;
+  }
+  .pf-controls input[type="text"]:focus { border-color: var(--accent2); }
+  .pf-controls select, .pf-controls button {
+    padding: 10px 14px; background: var(--panel); color: var(--text);
+    border: 1px solid var(--border); border-radius: 10px; font-size: .88rem; cursor: pointer;
+  }
+  .pf-controls button.filters-on { border-color: var(--accent); color: var(--accent); }
+  .pf-filters {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    padding: 14px 16px; margin-bottom: 12px; display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-end;
+  }
+  .pf-filter-group label {
+    display: block; color: var(--muted); font-size: .72rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px;
+  }
+  .pf-chiprow { display: flex; gap: 5px; flex-wrap: wrap; }
+  .pf-chiprow button {
+    padding: 5px 12px; border-radius: 16px; border: 1px solid var(--border);
+    background: var(--panel2); color: var(--text); font-size: .78rem; font-weight: 600; cursor: pointer;
+  }
+  .pf-chiprow button.active { background: var(--accent); color: #1a1f3a; border-color: var(--accent); }
+  .pf-range { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: .85rem; }
+  .pf-range input {
+    width: 76px; padding: 6px 8px; background: var(--panel2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 8px; font-size: .85rem;
+  }
+  #pfClearFilters {
+    padding: 7px 14px; border-radius: 8px; border: 1px solid var(--border);
+    background: none; color: var(--muted); font-size: .8rem; cursor: pointer;
+  }
+  .pf-change { font-size: .74rem; font-weight: 700; }
+  .pf-change.up { color: var(--green); }
+  .pf-change.down { color: #f87171; }
+  .pf-change.flat { color: var(--muted); }
   .card-footer { margin-top: auto; padding: 10px 16px 14px; }
   .card-footer a { color: var(--accent2); font-size: .82rem; text-decoration: none; }
   .card-footer a:hover { text-decoration: underline; }
@@ -246,6 +284,54 @@
         <div class="pf-total" id="pfTotal">—</div>
       </div>
       <button type="button" id="pfRefresh">Refresh prices</button>
+    </div>
+    <div class="pf-controls">
+      <input type="text" id="pfSearch" placeholder="Filter by name or set…" autocomplete="off" />
+      <select id="pfSort" aria-label="Sort by">
+        <option value="price_desc">Price: High to Low</option>
+        <option value="price_asc">Price: Low to High</option>
+        <option value="change_desc">Price Change: High to Low</option>
+        <option value="change_asc">Price Change: Low to High</option>
+        <option value="pct_desc">Percent Change: High to Low</option>
+        <option value="pct_asc">Percent Change: Low to High</option>
+        <option value="num_asc">Card Number: Low to High</option>
+        <option value="num_desc">Card Number: High to Low</option>
+        <option value="name_asc">Product Name: A to Z</option>
+        <option value="name_desc">Product Name: Z to A</option>
+        <option value="added_desc">Date Added: Newest First</option>
+        <option value="added_asc">Date Added: Oldest First</option>
+      </select>
+      <button type="button" id="pfFilterBtn">Filters</button>
+    </div>
+    <div class="pf-filters" id="pfFilters" style="display:none">
+      <div class="pf-filter-group">
+        <label>Product type</label>
+        <div class="pf-chiprow" id="pfType">
+          <button type="button" data-val="all" class="active">All</button>
+          <button type="button" data-val="cards">Cards Only</button>
+          <button type="button" data-val="sealed">Sealed Only</button>
+        </div>
+      </div>
+      <div class="pf-filter-group">
+        <label>Condition</label>
+        <div class="pf-chiprow" id="pfCond">
+          <button type="button" data-val="NM">NM</button>
+          <button type="button" data-val="LP">LP</button>
+          <button type="button" data-val="MP">MP</button>
+          <button type="button" data-val="HP">HP</button>
+          <button type="button" data-val="DM">DM</button>
+          <button type="button" data-val="SEALED">Sealed</button>
+        </div>
+      </div>
+      <div class="pf-filter-group">
+        <label>Price range (each)</label>
+        <div class="pf-range">$ <input type="number" id="pfPmin" min="0" placeholder="min"> to $ <input type="number" id="pfPmax" min="0" placeholder="max"></div>
+      </div>
+      <div class="pf-filter-group">
+        <label>Quantity owned</label>
+        <div class="pf-range"><input type="number" id="pfQmin" min="0" placeholder="min"> to <input type="number" id="pfQmax" min="0" placeholder="max"></div>
+      </div>
+      <button type="button" id="pfClearFilters">Clear filters</button>
     </div>
     <div class="status" id="pfStatus"></div>
     <div class="spinner" id="pfSpinner"></div>
@@ -476,27 +562,39 @@
   function showView(raw) {
     let name = raw;
     let query = null;
+    let pfParams = null;
     if (raw && raw.startsWith('search=')) {
       name = 'search';
       try { query = decodeURIComponent(raw.slice(7)); } catch {}
+    } else if (raw && raw.startsWith('portfolio')) {
+      name = 'portfolio';
+      const qi = raw.indexOf('?');
+      if (qi > -1) pfParams = raw.slice(qi + 1);
     }
     if (!views[name]) name = 'search';
     document.querySelectorAll('.nav-btn:not(.logout)').forEach((b) => b.classList.toggle('active', b.dataset.view === name));
     Object.entries(views).forEach(([n, el]) => { el.style.display = n === name ? '' : 'none'; });
-    if (name === 'portfolio') loadPortfolio();
-    else if (query && query.length >= 2 && query !== lastQuery) {
+    if (name === 'portfolio') {
+      parsePfParams(pfParams);
+      syncPfControls();
+      if (pfItems === null) loadPortfolio();
+      else renderPfList();
+    } else if (query && query.length >= 2 && query !== lastQuery) {
       input.value = query;
       performSearch(query);
     }
   }
 
   document.querySelectorAll('.nav-btn:not(.logout)').forEach((btn) => {
-    btn.addEventListener('click', () => { location.hash = btn.dataset.view; });
+    btn.addEventListener('click', () => {
+      // Keep portfolio sort/filter state when returning to the tab.
+      location.hash = btn.dataset.view === 'portfolio' ? encodePfHash() : btn.dataset.view;
+    });
   });
 
   // The hash keeps the active view across refreshes and enables back/forward.
   window.addEventListener('hashchange', () => showView(location.hash.slice(1)));
-  showView(location.hash.slice(1) || 'search');
+  // NOTE: initial showView() runs at the end of this script, after all state is declared.
 
   /* --------------------------- Add to portfolio --------------------------- */
 
@@ -538,6 +636,136 @@
 
   const CONDITION_SHORT = { NM: 'Near Mint', LP: 'Lightly Played', MP: 'Moderately Played', HP: 'Heavily Played', DM: 'Damaged', SEALED: 'Sealed' };
 
+  /* ---- Portfolio sort/filter state (persisted in the URL hash) ---- */
+
+  let pfItems = null;
+  let pfTotalAll = 0;
+  const PF_DEFAULTS = { sort: 'price_desc', q: '', type: 'all', cond: [], pmin: '', pmax: '', qmin: '', qmax: '' };
+  let pfState = { ...PF_DEFAULTS, cond: [] };
+  const PF_SORTS = ['price_desc','price_asc','change_desc','change_asc','pct_desc','pct_asc','num_asc','num_desc','name_asc','name_desc','added_desc','added_asc'];
+
+  function encodePfHash() {
+    const p = new URLSearchParams();
+    if (pfState.sort !== PF_DEFAULTS.sort) p.set('sort', pfState.sort);
+    if (pfState.q) p.set('q', pfState.q);
+    if (pfState.type !== 'all') p.set('type', pfState.type);
+    if (pfState.cond.length) p.set('cond', pfState.cond.join(','));
+    for (const k of ['pmin', 'pmax', 'qmin', 'qmax']) if (pfState[k] !== '') p.set(k, pfState[k]);
+    const s = p.toString();
+    return 'portfolio' + (s ? '?' + s : '');
+  }
+
+  function pushPfHash() {
+    // replaceState avoids one history entry per keystroke and hashchange loops.
+    history.replaceState(null, '', '#' + encodePfHash());
+  }
+
+  function parsePfParams(str) {
+    const p = new URLSearchParams(str || '');
+    pfState = {
+      sort: PF_SORTS.includes(p.get('sort')) ? p.get('sort') : PF_DEFAULTS.sort,
+      q: p.get('q') || '',
+      type: ['cards', 'sealed'].includes(p.get('type')) ? p.get('type') : 'all',
+      cond: (p.get('cond') || '').split(',').filter((c) => CONDITION_SHORT[c]),
+      pmin: p.get('pmin') ?? '', pmax: p.get('pmax') ?? '',
+      qmin: p.get('qmin') ?? '', qmax: p.get('qmax') ?? '',
+    };
+  }
+
+  function pfFiltersActive() {
+    return pfState.q !== '' || pfState.type !== 'all' || pfState.cond.length > 0
+      || pfState.pmin !== '' || pfState.pmax !== '' || pfState.qmin !== '' || pfState.qmax !== '';
+  }
+
+  function syncPfControls() {
+    document.getElementById('pfSearch').value = pfState.q;
+    document.getElementById('pfSort').value = pfState.sort;
+    document.querySelectorAll('#pfType button').forEach((b) => b.classList.toggle('active', b.dataset.val === pfState.type));
+    document.querySelectorAll('#pfCond button').forEach((b) => b.classList.toggle('active', pfState.cond.includes(b.dataset.val)));
+    document.getElementById('pfPmin').value = pfState.pmin;
+    document.getElementById('pfPmax').value = pfState.pmax;
+    document.getElementById('pfQmin').value = pfState.qmin;
+    document.getElementById('pfQmax').value = pfState.qmax;
+    const active = pfFiltersActive();
+    document.getElementById('pfFilterBtn').classList.toggle('filters-on', active);
+    if (active) document.getElementById('pfFilters').style.display = '';
+  }
+
+  const numFrom = (s) => { const m = String(s || '').match(/\d+(\.\d+)?/); return m ? parseFloat(m[0]) : Infinity; };
+  const PF_COMPARATORS = {
+    price_desc: (a, b) => (b.unitPrice ?? -1) - (a.unitPrice ?? -1),
+    price_asc: (a, b) => (a.unitPrice ?? Infinity) - (b.unitPrice ?? Infinity),
+    change_desc: (a, b) => (b.unitChange ?? -Infinity) - (a.unitChange ?? -Infinity),
+    change_asc: (a, b) => (a.unitChange ?? Infinity) - (b.unitChange ?? Infinity),
+    pct_desc: (a, b) => (b.unitChangePct ?? -Infinity) - (a.unitChangePct ?? -Infinity),
+    pct_asc: (a, b) => (a.unitChangePct ?? Infinity) - (b.unitChangePct ?? Infinity),
+    num_asc: (a, b) => numFrom(a.number) - numFrom(b.number),
+    num_desc: (a, b) => numFrom(b.number) === Infinity ? -1 : numFrom(b.number) - numFrom(a.number),
+    name_asc: (a, b) => a.name.localeCompare(b.name),
+    name_desc: (a, b) => b.name.localeCompare(a.name),
+    added_desc: (a, b) => new Date(b.addedAt) - new Date(a.addedAt),
+    added_asc: (a, b) => new Date(a.addedAt) - new Date(b.addedAt),
+  };
+
+  function pfFiltered() {
+    return pfItems.filter((i) => {
+      if (pfState.q && !(i.name + ' ' + i.set).toLowerCase().includes(pfState.q.toLowerCase())) return false;
+      if (pfState.type === 'cards' && i.sealed) return false;
+      if (pfState.type === 'sealed' && !i.sealed) return false;
+      if (pfState.cond.length && !pfState.cond.includes(i.condition)) return false;
+      if (pfState.pmin !== '' && (i.unitPrice === null || i.unitPrice < Number(pfState.pmin))) return false;
+      if (pfState.pmax !== '' && (i.unitPrice === null || i.unitPrice > Number(pfState.pmax))) return false;
+      if (pfState.qmin !== '' && i.qty < Number(pfState.qmin)) return false;
+      if (pfState.qmax !== '' && i.qty > Number(pfState.qmax)) return false;
+      return true;
+    });
+  }
+
+  function changeBadge(item) {
+    if (item.unitChange === null || item.unitChange === undefined) return '';
+    const dir = item.unitChange > 0 ? 'up' : item.unitChange < 0 ? 'down' : 'flat';
+    const arrow = item.unitChange > 0 ? '▲' : item.unitChange < 0 ? '▼' : '·';
+    const pct = item.unitChangePct !== null && item.unitChangePct !== undefined ? ` (${Math.abs(item.unitChangePct)}%)` : '';
+    return `<div class="pf-change ${dir}" title="Change since previous day's sales">${arrow} $${Math.abs(item.unitChange).toFixed(2)}${pct}</div>`;
+  }
+
+  function renderPfList() {
+    if (pfItems === null) return;
+    const shown = pfFiltered().sort(PF_COMPARATORS[pfState.sort] || PF_COMPARATORS.price_desc);
+    pfTotal.textContent = '$' + Number(pfTotalAll || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    pfEmpty.style.display = pfItems.length ? 'none' : 'block';
+    if (pfFiltersActive()) {
+      const shownValue = shown.reduce((s, i) => s + (i.lineValue ?? 0), 0);
+      pfStatus.textContent = `Showing ${shown.length} of ${pfItems.length} items · filtered value $${shownValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    } else {
+      pfStatus.textContent = pfItems.length ? `${pfItems.length} item${pfItems.length === 1 ? '' : 's'}` : '';
+    }
+    pfList.innerHTML = shown.map((item) => `
+      <div class="pf-item" data-key="${esc(item.key)}">
+        ${item.image ? `<img src="${esc(item.image)}" alt="" loading="lazy">` : '<div class="placeholder">🃏</div>'}
+        <div class="pf-info">
+          <div class="name">${item.sealed ? '<span class="sealed-badge">📦</span> ' : ''}${esc(item.name)}</div>
+          <div class="sub">${esc(item.set)}${item.number ? ' · #' + esc(item.number) : ''} · ${esc(item.printing)} · ${esc(CONDITION_SHORT[item.condition] || item.condition)}</div>
+        </div>
+        <div class="pf-qty">
+          <button type="button" class="qty-dec" aria-label="Decrease">−</button>
+          <span>${item.qty}</span>
+          <button type="button" class="qty-inc" aria-label="Increase">+</button>
+        </div>
+        <div class="pf-prices">
+          <div class="line">${usd(item.lineValue)}</div>
+          <div class="unit">${usd(item.unitPrice).replace(/<[^>]*>/g, '—')} each${
+            item.condition === 'SEALED' ? ''
+            : item.priceBasis === 'condition' ? ' (' + esc(item.condition) + ')'
+            : item.priceBasis === 'market' ? ` <span title="No current ${esc(item.condition)} sales data — using market price">(market*)</span>`
+            : ''}</div>
+          ${changeBadge(item)}
+        </div>
+        <button type="button" class="pf-remove" aria-label="Remove" title="Remove">✕</button>
+      </div>`).join('');
+    window.__pfItems = Object.fromEntries(shown.map((i) => [i.key, i]));
+  }
+
   async function loadPortfolio() {
     pfSpinner.style.display = 'block';
     pfStatus.textContent = '';
@@ -546,36 +774,59 @@
       const data = await res.json();
       pfSpinner.style.display = 'none';
       if (!res.ok) { pfStatus.textContent = data.error || 'Could not load portfolio.'; return; }
-      pfTotal.textContent = '$' + Number(data.totalValue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-      pfEmpty.style.display = data.items.length ? 'none' : 'block';
-      pfList.innerHTML = data.items.map((item) => `
-        <div class="pf-item" data-key="${esc(item.key)}">
-          ${item.image ? `<img src="${esc(item.image)}" alt="" loading="lazy">` : '<div class="placeholder">🃏</div>'}
-          <div class="pf-info">
-            <div class="name">${item.sealed ? '<span class="sealed-badge">📦</span> ' : ''}${esc(item.name)}</div>
-            <div class="sub">${esc(item.set)}${item.number ? ' · #' + esc(item.number) : ''} · ${esc(item.printing)} · ${esc(CONDITION_SHORT[item.condition] || item.condition)}</div>
-          </div>
-          <div class="pf-qty">
-            <button type="button" class="qty-dec" aria-label="Decrease">−</button>
-            <span>${item.qty}</span>
-            <button type="button" class="qty-inc" aria-label="Increase">+</button>
-          </div>
-          <div class="pf-prices">
-            <div class="line">${usd(item.lineValue)}</div>
-            <div class="unit">${usd(item.unitPrice).replace(/<[^>]*>/g, '—')} each${
-              item.condition === 'SEALED' ? ''
-              : item.priceBasis === 'condition' ? ' (' + esc(item.condition) + ')'
-              : item.priceBasis === 'market' ? ` <span title="No current ${esc(item.condition)} sales data — using market price">(market*)</span>`
-              : ''}</div>
-          </div>
-          <button type="button" class="pf-remove" aria-label="Remove" title="Remove">✕</button>
-        </div>`).join('');
-      window.__pfItems = Object.fromEntries(data.items.map((i) => [i.key, i]));
+      pfItems = data.items;
+      pfTotalAll = data.totalValue;
+      renderPfList();
     } catch {
       pfSpinner.style.display = 'none';
       pfStatus.textContent = 'Network error — please try again.';
     }
   }
+
+  /* ---- Portfolio control wiring ---- */
+
+  let pfSearchTimer = null;
+  document.getElementById('pfSearch').addEventListener('input', (e) => {
+    clearTimeout(pfSearchTimer);
+    pfSearchTimer = setTimeout(() => { pfState.q = e.target.value.trim(); pushPfHash(); syncPfControls(); renderPfList(); }, 250);
+  });
+  document.getElementById('pfSort').addEventListener('change', (e) => {
+    pfState.sort = e.target.value; pushPfHash(); renderPfList();
+  });
+  document.getElementById('pfFilterBtn').addEventListener('click', () => {
+    const el = document.getElementById('pfFilters');
+    el.style.display = el.style.display === 'none' ? '' : 'none';
+  });
+  document.getElementById('pfType').addEventListener('click', (e) => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    pfState.type = btn.dataset.val;
+    pushPfHash(); syncPfControls(); renderPfList();
+  });
+  document.getElementById('pfCond').addEventListener('click', (e) => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    const val = btn.dataset.val;
+    pfState.cond = pfState.cond.includes(val) ? pfState.cond.filter((c) => c !== val) : [...pfState.cond, val];
+    pushPfHash(); syncPfControls(); renderPfList();
+  });
+  for (const id of ['pfPmin', 'pfPmax', 'pfQmin', 'pfQmax']) {
+    document.getElementById(id).addEventListener('input', (e) => {
+      clearTimeout(pfSearchTimer);
+      pfSearchTimer = setTimeout(() => {
+        const k = { pfPmin: 'pmin', pfPmax: 'pmax', pfQmin: 'qmin', pfQmax: 'qmax' }[id];
+        pfState[k] = e.target.value === '' ? '' : String(Math.max(0, Number(e.target.value)));
+        pushPfHash(); renderPfList();
+      }, 300);
+    });
+  }
+  document.getElementById('pfClearFilters').addEventListener('click', () => {
+    pfState = { ...PF_DEFAULTS, cond: [], sort: pfState.sort };
+    pushPfHash(); syncPfControls(); renderPfList();
+  });
+
+  // Initial route — after all view/portfolio state above is declared.
+  showView(location.hash.slice(1) || 'search');
 
   pfList.addEventListener('click', async (e) => {
     const row = e.target.closest('.pf-item');
