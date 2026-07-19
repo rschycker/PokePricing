@@ -275,11 +275,19 @@
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-  form.addEventListener('submit', async (e) => {
+  let lastQuery = null;
+
+  form.addEventListener('submit', (e) => {
     e.preventDefault();
     const q = input.value.trim();
     if (q.length < 2) { statusEl.textContent = 'Enter at least 2 characters.'; return; }
+    const target = 'search=' + encodeURIComponent(q);
+    if (location.hash.slice(1) === target) performSearch(q); // same query: hashchange won't fire
+    else location.hash = target;
+  });
 
+  async function performSearch(q) {
+    lastQuery = q;
     grid.innerHTML = '';
     empty.style.display = 'none';
     banner.style.display = 'none';
@@ -315,7 +323,7 @@
       spinner.style.display = 'none';
       statusEl.textContent = 'Network error — please try again.';
     }
-  });
+  }
 
   let cardsData = [];
   const GRADERS = ['PSA', 'BGS', 'CGC'];
@@ -464,13 +472,31 @@
   });
 
   const views = { search: document.getElementById('view-search'), portfolio: document.getElementById('view-portfolio') };
+
+  function showView(raw) {
+    let name = raw;
+    let query = null;
+    if (raw && raw.startsWith('search=')) {
+      name = 'search';
+      try { query = decodeURIComponent(raw.slice(7)); } catch {}
+    }
+    if (!views[name]) name = 'search';
+    document.querySelectorAll('.nav-btn:not(.logout)').forEach((b) => b.classList.toggle('active', b.dataset.view === name));
+    Object.entries(views).forEach(([n, el]) => { el.style.display = n === name ? '' : 'none'; });
+    if (name === 'portfolio') loadPortfolio();
+    else if (query && query.length >= 2 && query !== lastQuery) {
+      input.value = query;
+      performSearch(query);
+    }
+  }
+
   document.querySelectorAll('.nav-btn:not(.logout)').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.nav-btn').forEach((b) => b.classList.toggle('active', b === btn));
-      Object.entries(views).forEach(([name, el]) => { el.style.display = name === btn.dataset.view ? '' : 'none'; });
-      if (btn.dataset.view === 'portfolio') loadPortfolio();
-    });
+    btn.addEventListener('click', () => { location.hash = btn.dataset.view; });
   });
+
+  // The hash keeps the active view across refreshes and enables back/forward.
+  window.addEventListener('hashchange', () => showView(location.hash.slice(1)));
+  showView(location.hash.slice(1) || 'search');
 
   /* --------------------------- Add to portfolio --------------------------- */
 
