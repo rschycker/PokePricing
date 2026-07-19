@@ -439,13 +439,16 @@ async function currentUnitPrice(item) {
     }
     if (norm) cacheSet(ck, norm);
   }
-  if (!norm) return null;
+  if (!norm) return { price: null, basis: null };
   const variant = norm.variants.find((v) => normKey(v.printing) === normKey(item.printing)) ?? norm.variants[0];
-  if (!variant) return null;
+  if (!variant) return { price: null, basis: null };
   if (item.condition && item.condition !== 'SEALED') {
-    return variant.conditions?.[item.condition] ?? variant.market ?? null;
+    const condPrice = variant.conditions?.[item.condition];
+    if (condPrice !== undefined && condPrice !== null) return { price: condPrice, basis: 'condition' };
+    // No current sales data for this condition — fall back to market price.
+    return { price: variant.market ?? null, basis: variant.market != null ? 'market' : null };
   }
-  return variant.market ?? null;
+  return { price: variant.market ?? null, basis: variant.market != null ? 'market' : null };
 }
 
 /* ------------------------------ Authentication ---------------------------- */
@@ -545,8 +548,8 @@ app.get('/api/portfolio', async (_req, res) => {
   try {
     const pf = await readPortfolio();
     const items = await Promise.all(pf.items.map(async (item) => {
-      const unitPrice = await currentUnitPrice(item);
-      return { ...item, key: itemKey(item), unitPrice, lineValue: unitPrice !== null ? Math.round(unitPrice * item.qty * 100) / 100 : null };
+      const { price: unitPrice, basis: priceBasis } = await currentUnitPrice(item);
+      return { ...item, key: itemKey(item), unitPrice, priceBasis, lineValue: unitPrice !== null ? Math.round(unitPrice * item.qty * 100) / 100 : null };
     }));
     const totalValue = Math.round(items.reduce((sum, i) => sum + (i.lineValue ?? 0), 0) * 100) / 100;
     res.json({ items, totalValue, demoMode: !API_KEY });

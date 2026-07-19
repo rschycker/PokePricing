@@ -536,7 +536,11 @@
           </div>
           <div class="pf-prices">
             <div class="line">${usd(item.lineValue)}</div>
-            <div class="unit">${usd(item.unitPrice).replace(/<[^>]*>/g, '—')} each</div>
+            <div class="unit">${usd(item.unitPrice).replace(/<[^>]*>/g, '—')} each${
+              item.condition === 'SEALED' ? ''
+              : item.priceBasis === 'condition' ? ' (' + esc(item.condition) + ')'
+              : item.priceBasis === 'market' ? ` <span title="No current ${esc(item.condition)} sales data — using market price">(market*)</span>`
+              : ''}</div>
           </div>
           <button type="button" class="pf-remove" aria-label="Remove" title="Remove">✕</button>
         </div>`).join('');
