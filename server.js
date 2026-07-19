@@ -162,6 +162,34 @@ function normalizeCard(raw) {
     v.history = parseHistory(raw, v.printing) ?? card.history;
   }
 
+  // Enrich condition prices from recent sales history. prices.variants only
+  // covers conditions with CURRENT LISTINGS; priceHistory.conditions carries
+  // the latest sale-based market value per condition (e.g. Lightly Played
+  // with recent sales but nothing listed right now).
+  const histConds = (raw.priceHistory ?? raw.history)?.conditions;
+  if (histConds && typeof histConds === 'object') {
+    for (const variant of card.variants) {
+      let keys = Object.keys(histConds);
+      if (card.variants.length > 1) {
+        const scoped = keys.filter((k) => normKey(k).includes(normKey(variant.printing)));
+        if (scoped.length) keys = scoped;
+      }
+      // Shortest keys first so "Near Mint Holofoil" wins over
+      // "Near Mint 1st Edition Holofoil" for the plain Holofoil printing.
+      keys = [...keys].sort((a, b) => a.length - b.length);
+      for (const k of keys) {
+        const code = conditionCode(k);
+        if (!code) continue;
+        const conds = (variant.conditions ??= {});
+        if (conds[code] !== undefined) continue;
+        const hist = histConds[k]?.history;
+        const last = Array.isArray(hist) && hist.length ? hist[hist.length - 1] : null;
+        const price = toNumber(last?.market ?? last?.price);
+        if (price !== null) conds[code] = price;
+      }
+    }
+  }
+
   return card;
 }
 
@@ -424,9 +452,11 @@ async function currentUnitPrice(item) {
       norm = demo ? (item.sealed ? normalizeSealed(demo) : normalizeCard(demo)) : null;
     } else {
       try {
+        // includeHistory is required to get per-condition sale prices —
+        // prices.variants alone only covers conditions with live listings.
         const url = item.sealed
           ? `${API_BASE}/sealed-products?tcgPlayerId=${encodeURIComponent(item.id)}`
-          : `${API_BASE}/cards?tcgPlayerId=${encodeURIComponent(item.id)}`;
+          : `${API_BASE}/cards?tcgPlayerId=${encodeURIComponent(item.id)}&includeHistory=true&days=30`;
         const resp = await fetch(url, { headers: { Authorization: `Bearer ${API_KEY}` } });
         if (resp.ok) {
           const body = await resp.json();
