@@ -14,6 +14,8 @@
 
 const express = require('express');
 const path = require('path');
+const fs = require('fs/promises');
+const crypto = require('crypto');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -154,8 +156,80 @@ function normalizeCard(raw) {
 
   card.history = parseHistory(raw);
   card.graded = parseGraded(raw);
+  // Per-printing trend where history is keyed by printing (older sets with
+  // 1st Edition / Unlimited variants).
+  for (const v of card.variants) {
+    v.history = parseHistory(raw, v.printing) ?? card.history;
+  }
+
+  // Enrich condition prices from recent sales history. prices.variants only
+  // covers conditions with CURRENT LISTINGS; priceHistory.conditions carries
+  // the latest sale-based market value per condition (e.g. Lightly Played
+  // with recent sales but nothing listed right now).
+  const histConds = (raw.priceHistory ?? raw.history)?.conditions;
+  if (histConds && typeof histConds === 'object') {
+    for (const variant of card.variants) {
+      let keys = Object.keys(histConds);
+      if (card.variants.length > 1) {
+        const scoped = keys.filter((k) => normKey(k).includes(normKey(variant.printing)));
+        if (scoped.length) keys = scoped;
+      }
+      // Shortest keys first so "Near Mint Holofoil" wins over
+      // "Near Mint 1st Edition Holofoil" for the plain Holofoil printing.
+      keys = [...keys].sort((a, b) => a.length - b.length);
+      for (const k of keys) {
+        const code = conditionCode(k);
+        if (!code) continue;
+        const hist = histConds[k]?.history;
+        if (!Array.isArray(hist) || hist.length === 0) continue;
+        const lastP = toNumber(hist[hist.length - 1]?.market ?? hist[hist.length - 1]?.price);
+        const conds = (variant.conditions ??= {});
+        if (conds[code] === undefined && lastP !== null) conds[code] = lastP;
+        // Day-over-day change per condition (last two history points).
+        const changes = (variant.conditionChanges ??= {});
+        if (changes[code] === undefined && hist.length >= 2) {
+          const prevP = toNumber(hist[hist.length - 2]?.market ?? hist[hist.length - 2]?.price);
+          if (prevP !== null && lastP !== null && prevP !== 0) {
+            changes[code] = {
+              dollar: Math.round((lastP - prevP) * 100) / 100,
+              pct: Math.round(((lastP - prevP) / prevP) * 1000) / 10,
+            };
+          }
+        }
+      }
+    }
+  }
 
   return card;
+}
+
+// Normalize a sealed product (booster box, ETB, etc.) into the same shape
+// the UI uses for cards. Sealed products have no conditions or graded data.
+function normalizeSealed(raw) {
+  const prices = raw.prices || {};
+  return {
+    id: raw.tcgPlayerId ?? raw.id ?? null,
+    sealed: true,
+    name: raw.name ?? 'Unknown product',
+    set: raw.setName ?? raw.set ?? '',
+    number: '',
+    totalSetNumber: null,
+    rarity: raw.productType ?? 'Sealed Product',
+    image: raw.imageCdnUrl400 ?? raw.imageUrl ?? raw.image ?? null,
+    tcgPlayerUrl: raw.tcgPlayerUrl ?? (raw.tcgPlayerId
+      ? `https://www.tcgplayer.com/product/${raw.tcgPlayerId}`
+      : null),
+    lastUpdated: prices.lastUpdated ?? raw.lastScrapedAt ?? raw.updatedAt ?? null,
+    variants: [{
+      printing: raw.productType ?? 'Sealed',
+      // Live shape uses a bare `unopenedPrice` number on the product itself.
+      market: toNumber(prices.market ?? prices.marketPrice ?? raw.unopenedPrice ?? raw.marketPrice),
+      low: toNumber(prices.low ?? prices.lowPrice ?? raw.lowPrice),
+      conditions: null,
+    }],
+    history: parseHistory(raw),
+    graded: null,
+  };
 }
 
 /* ----------------------- History & graded-sale parsing --------------------- */
@@ -169,8 +243,13 @@ function toMillis(v) {
   return 0;
 }
 
+const normKey = (s) => String(s ?? '').toLowerCase().replace(/[\s_-]/g, '');
+
 // Compute 7/30-day % change from a price history payload (shape-tolerant).
-function parseHistory(raw) {
+// Pass `printing` to scope the trend to one printing (e.g. "1st Edition
+// Holofoil" vs "Unlimited Holofoil" on older sets), since PPT keys history
+// as "Near Mint 1st Edition Holofoil", "Near Mint Unlimited Holofoil", etc.
+function parseHistory(raw, printing) {
   const h = raw.priceHistory ?? raw.history ?? null;
   let points = Array.isArray(h) ? h
     : Array.isArray(h?.data) ? h.data
@@ -180,7 +259,11 @@ function parseHistory(raw) {
   // PPT live shape: { conditions: { "Near Mint": { history: [{date, market, volume}] }, ... } }
   // Use Near Mint history for the trend; fall back to the first condition present.
   if (!points && h?.conditions && typeof h.conditions === 'object') {
-    const keys = Object.keys(h.conditions);
+    let keys = Object.keys(h.conditions);
+    if (printing) {
+      const scoped = keys.filter((k) => normKey(k).includes(normKey(printing)));
+      if (scoped.length) keys = scoped;
+    }
     const nmKey = keys.find((k) => conditionCode(k) === 'NM') ?? keys[0];
     points = h.conditions[nmKey]?.history;
   }
@@ -268,11 +351,19 @@ const DEMO_CARDS = [
     rarity: 'Holo Rare',
     printing: 'Holofoil (Unlimited)',
     prices: { market: 425.0, low: 300.0, conditions: { near_mint: 425.0, lightly_played: 340.11, moderately_played: 262.5, heavily_played: 191.25, damaged: 127.5 } },
-    priceHistory: [
-      { date: new Date(Date.now() - 30 * 86400000).toISOString(), price: 401.5 },
-      { date: new Date(Date.now() - 7 * 86400000).toISOString(), price: 418.0 },
-      { date: new Date().toISOString(), price: 425.0 },
-    ],
+    priceHistory: {
+      conditions: {
+        'Near Mint': { history: [
+          { date: new Date(Date.now() - 30 * 86400000).toISOString(), market: 401.5 },
+          { date: new Date(Date.now() - 86400000).toISOString(), market: 418.0 },
+          { date: new Date().toISOString(), market: 425.0 },
+        ] },
+        'Lightly Played': { history: [
+          { date: new Date(Date.now() - 86400000).toISOString(), market: 344.5 },
+          { date: new Date().toISOString(), market: 340.11 },
+        ] },
+      },
+    },
     ebay: {
       salesByGrade: {
         psa10: {
@@ -315,45 +406,345 @@ const DEMO_CARDS = [
   },
 ];
 
+const DEMO_SEALED = [
+  {
+    tcgPlayerId: '516323',
+    name: 'Obsidian Flames Booster Box (Demo Data)',
+    setName: 'Obsidian Flames',
+    productType: 'Booster Box',
+    prices: { market: 129.99, low: 118.5, lastUpdated: new Date().toISOString() },
+    priceHistory: {
+      conditions: {
+        Sealed: {
+          history: [
+            { date: new Date(Date.now() - 30 * 86400000).toISOString(), market: 121.0 },
+            { date: new Date().toISOString(), market: 129.99 },
+          ],
+        },
+      },
+    },
+  },
+];
+
+/* ------------------------------- Portfolio -------------------------------- */
+// Shared, server-side portfolio stored as JSON on an Upsun storage mount
+// (./data). Writes are serialized through a promise chain to avoid races.
+
+const DATA_DIR = process.env.PORTFOLIO_DIR || path.join(__dirname, 'data');
+const PORTFOLIO_FILE = path.join(DATA_DIR, 'portfolio.json');
+const VALID_CONDITIONS = [...CONDITIONS, 'SEALED'];
+
+async function readPortfolio() {
+  try {
+    const parsed = JSON.parse(await fs.readFile(PORTFOLIO_FILE, 'utf8'));
+    return Array.isArray(parsed.items) ? parsed : { items: [] };
+  } catch {
+    return { items: [] };
+  }
+}
+
+let writeChain = Promise.resolve();
+function withPortfolio(mutator) {
+  const run = writeChain.then(async () => {
+    const pf = await readPortfolio();
+    mutator(pf);
+    await fs.mkdir(DATA_DIR, { recursive: true });
+    await fs.writeFile(PORTFOLIO_FILE, JSON.stringify(pf, null, 2));
+    return pf;
+  });
+  writeChain = run.catch(() => {});
+  return run;
+}
+
+const itemKey = (i) => [i.id, i.printing || '', i.condition || ''].join('|');
+
+// Current unit price for a portfolio item (cached 6h to conserve credits).
+async function currentUnitPrice(item) {
+  const ck = `pf:${item.sealed ? 's' : 'c'}:${item.id}`;
+  let norm = cacheGet(ck);
+  if (!norm) {
+    if (!API_KEY) {
+      const demo = item.sealed
+        ? DEMO_SEALED.find((d) => String(d.tcgPlayerId) === String(item.id))
+        : DEMO_CARDS.find((d) => String(d.tcgPlayerId) === String(item.id));
+      norm = demo ? (item.sealed ? normalizeSealed(demo) : normalizeCard(demo)) : null;
+    } else {
+      try {
+        // includeHistory is required to get per-condition sale prices —
+        // prices.variants alone only covers conditions with live listings.
+        const url = item.sealed
+          ? `${API_BASE}/sealed-products?tcgPlayerId=${encodeURIComponent(item.id)}&includeHistory=true&days=30`
+          : `${API_BASE}/cards?tcgPlayerId=${encodeURIComponent(item.id)}&includeHistory=true&days=30`;
+        const resp = await fetch(url, { headers: { Authorization: `Bearer ${API_KEY}` } });
+        if (resp.ok) {
+          const body = await resp.json();
+          const raw = Array.isArray(body.data) ? body.data[0] : body.data;
+          if (raw) norm = item.sealed ? normalizeSealed(raw) : normalizeCard(raw);
+        }
+      } catch (err) {
+        console.error(`Portfolio price fetch failed for ${item.id}:`, err.message);
+      }
+    }
+    if (norm) cacheSet(ck, norm);
+  }
+  if (!norm) return { price: null, basis: null, change: null };
+  const variant = norm.variants.find((v) => normKey(v.printing) === normKey(item.printing)) ?? norm.variants[0];
+  if (!variant) return { price: null, basis: null, change: null };
+  if (item.condition && item.condition !== 'SEALED') {
+    const condPrice = variant.conditions?.[item.condition];
+    const change = variant.conditionChanges?.[item.condition] ?? null;
+    if (condPrice !== undefined && condPrice !== null) return { price: condPrice, basis: 'condition', change };
+    // No current sales data for this condition — fall back to market price.
+    return { price: variant.market ?? null, basis: variant.market != null ? 'market' : null, change: variant.conditionChanges?.NM ?? null };
+  }
+  // Sealed: derive change from item-level history (percent), dollar approximated.
+  const price = variant.market ?? null;
+  const pct = norm.history?.change7d ?? null;
+  const change = price !== null && pct !== null
+    ? { pct, dollar: Math.round((price - price / (1 + pct / 100)) * 100) / 100 }
+    : null;
+  return { price, basis: price != null ? 'market' : null, change };
+}
+
+/* ------------------------------ Authentication ---------------------------- */
+// Single-user login. Set SITE_USERNAME and SITE_PASSWORD (Upsun variables) to
+// enable; if unset, the site is open (handy for local dev). Sessions are
+// HMAC-signed cookies. Set SESSION_SECRET too, or sessions reset on redeploy.
+
+const SITE_USERNAME = process.env.SITE_USERNAME || '';
+const SITE_PASSWORD = process.env.SITE_PASSWORD || '';
+const AUTH_ENABLED = !!(SITE_USERNAME && SITE_PASSWORD);
+const SESSION_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
+const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+const COOKIE_NAME = 'ppl_session';
+
+if (!AUTH_ENABLED) {
+  console.warn('Auth disabled — set SITE_USERNAME and SITE_PASSWORD to require login.');
+}
+
+const sign = (v) => crypto.createHmac('sha256', SESSION_SECRET).update(v).digest('hex');
+const makeToken = () => {
+  const exp = Date.now() + SESSION_TTL_MS;
+  return `${exp}.${sign(String(exp))}`;
+};
+
+function validToken(tok) {
+  if (!tok) return false;
+  const [exp, sig] = String(tok).split('.');
+  if (!exp || !sig) return false;
+  const expected = sign(exp);
+  const a = Buffer.from(sig);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return false;
+  return Number(exp) > Date.now();
+}
+
+function getCookie(req, name) {
+  for (const part of String(req.headers.cookie || '').split(';')) {
+    const i = part.indexOf('=');
+    if (i > -1 && part.slice(0, i).trim() === name) return decodeURIComponent(part.slice(i + 1).trim());
+  }
+  return null;
+}
+
+// Constant-time credential comparison (hash first so lengths always match).
+const safeEqual = (a, b) => crypto.timingSafeEqual(
+  crypto.createHash('sha256').update(String(a)).digest(),
+  crypto.createHash('sha256').update(String(b)).digest()
+);
+
+// Basic login throttle: max 10 attempts per IP per minute.
+const loginAttempts = new Map();
+function throttled(ip) {
+  const now = Date.now();
+  const rec = loginAttempts.get(ip) ?? { n: 0, t: now };
+  if (now - rec.t > 60000) { rec.n = 0; rec.t = now; }
+  rec.n++;
+  if (loginAttempts.size > 1000) loginAttempts.clear();
+  loginAttempts.set(ip, rec);
+  return rec.n > 10;
+}
+
 /* --------------------------------- Routes -------------------------------- */
+
+app.use(express.json());
+
+// Auth gate — everything except the login page/endpoint and health check.
+app.use((req, res, next) => {
+  if (!AUTH_ENABLED) return next();
+  if (req.path === '/login.html' || req.path === '/api/login' || req.path === '/api/health') return next();
+  if (validToken(getCookie(req, COOKIE_NAME))) return next();
+  if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'Not logged in.' });
+  return res.redirect('/login.html');
+});
+
+app.post('/api/login', (req, res) => {
+  if (!AUTH_ENABLED) return res.json({ ok: true });
+  const ip = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress || '?';
+  if (throttled(ip)) return res.status(429).json({ error: 'Too many attempts — wait a minute.' });
+  const { username, password } = req.body || {};
+  if (username && password && safeEqual(username, SITE_USERNAME) && safeEqual(password, SITE_PASSWORD)) {
+    const secure = req.secure || req.headers['x-forwarded-proto'] === 'https' ? '; Secure' : '';
+    res.setHeader('Set-Cookie',
+      `${COOKIE_NAME}=${makeToken()}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${Math.floor(SESSION_TTL_MS / 1000)}${secure}`);
+    return res.json({ ok: true });
+  }
+  res.status(401).json({ error: 'Invalid username or password.' });
+});
+
+app.post('/api/logout', (_req, res) => {
+  res.setHeader('Set-Cookie', `${COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`);
+  res.json({ ok: true });
+});
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.get('/api/health', (_req, res) => {
-  res.json({ ok: true, demoMode: !API_KEY });
+app.get('/api/portfolio', async (_req, res) => {
+  try {
+    const pf = await readPortfolio();
+    const items = await Promise.all(pf.items.map(async (item) => {
+      const { price: unitPrice, basis: priceBasis, change } = await currentUnitPrice(item);
+      return {
+        ...item,
+        key: itemKey(item),
+        unitPrice,
+        priceBasis,
+        unitChange: change?.dollar ?? null,
+        unitChangePct: change?.pct ?? null,
+        lineValue: unitPrice !== null ? Math.round(unitPrice * item.qty * 100) / 100 : null,
+      };
+    }));
+    const totalValue = Math.round(items.reduce((sum, i) => sum + (i.lineValue ?? 0), 0) * 100) / 100;
+    res.json({ items, totalValue, demoMode: !API_KEY });
+  } catch (err) {
+    console.error('Portfolio read failed:', err);
+    res.status(500).json({ error: 'Could not load portfolio.' });
+  }
 });
+
+app.post('/api/portfolio', async (req, res) => {
+  const { id, sealed, name, set, number, printing, condition, qty, image, tcgPlayerUrl } = req.body || {};
+  const quantity = Math.floor(Number(qty));
+  const cond = sealed ? 'SEALED' : String(condition || '').toUpperCase();
+  if (!id || !name || !Number.isFinite(quantity) || quantity < 1 || quantity > 999) {
+    return res.status(400).json({ error: 'Invalid item.' });
+  }
+  if (!VALID_CONDITIONS.includes(cond)) {
+    return res.status(400).json({ error: 'Invalid condition.' });
+  }
+  try {
+    const item = {
+      id: String(id).slice(0, 40),
+      sealed: !!sealed,
+      name: String(name).slice(0, 200),
+      set: String(set || '').slice(0, 100),
+      number: String(number || '').slice(0, 20),
+      printing: String(printing || '').slice(0, 60),
+      condition: cond,
+      qty: quantity,
+      image: typeof image === 'string' && image.startsWith('https://') ? image.slice(0, 300) : null,
+      tcgPlayerUrl: typeof tcgPlayerUrl === 'string' && tcgPlayerUrl.startsWith('https://www.tcgplayer.com/') ? tcgPlayerUrl : null,
+      addedAt: new Date().toISOString(),
+    };
+    await withPortfolio((pf) => {
+      const existing = pf.items.find((i) => itemKey(i) === itemKey(item));
+      if (existing) existing.qty = Math.min(existing.qty + item.qty, 999);
+      else pf.items.push(item);
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Portfolio add failed:', err);
+    res.status(500).json({ error: 'Could not save portfolio.' });
+  }
+});
+
+app.post('/api/portfolio/update', async (req, res) => {
+  const { key, qty } = req.body || {};
+  const quantity = Math.floor(Number(qty));
+  if (!key || !Number.isFinite(quantity) || quantity > 999) {
+    return res.status(400).json({ error: 'Invalid update.' });
+  }
+  try {
+    await withPortfolio((pf) => {
+      if (quantity < 1) pf.items = pf.items.filter((i) => itemKey(i) !== key);
+      else {
+        const item = pf.items.find((i) => itemKey(i) === key);
+        if (item) item.qty = quantity;
+      }
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Portfolio update failed:', err);
+    res.status(500).json({ error: 'Could not update portfolio.' });
+  }
+});
+
+app.post('/api/portfolio/remove', async (req, res) => {
+  const { key } = req.body || {};
+  if (!key) return res.status(400).json({ error: 'Missing key.' });
+  try {
+    await withPortfolio((pf) => {
+      pf.items = pf.items.filter((i) => itemKey(i) !== key);
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Portfolio remove failed:', err);
+    res.status(500).json({ error: 'Could not update portfolio.' });
+  }
+});
+
+app.get('/api/health', (_req, res) => {
+  res.json({ ok: true, demoMode: !API_KEY, authEnabled: AUTH_ENABLED });
+});
+
+const CARDS_PER_PAGE = 24;
+const SEALED_PER_PAGE = 8;
 
 app.get('/api/search', async (req, res) => {
   const q = String(req.query.q || '').trim().slice(0, 100);
+  const page = Math.max(1, Math.min(20, Math.floor(Number(req.query.page)) || 1));
   if (q.length < 2) {
     return res.status(400).json({ error: 'Enter at least 2 characters.' });
   }
 
   // Demo mode: no API key configured.
   if (!API_KEY) {
-    const results = DEMO_CARDS.filter((c) =>
-      c.name.toLowerCase().includes(q.toLowerCase())
-    ).map(normalizeCard);
+    if (page > 1) return res.json({ demoMode: true, results: [], hasMore: false, page });
+    const results = [
+      ...DEMO_CARDS.filter((c) => c.name.toLowerCase().includes(q.toLowerCase())).map(normalizeCard),
+      ...DEMO_SEALED.filter((s) => s.name.toLowerCase().includes(q.toLowerCase())).map(normalizeSealed),
+    ];
     return res.json({
       demoMode: true,
       note: 'PPT_API_KEY is not set — showing sample data. Add your PokemonPriceTracker API key to get live TCGplayer prices.',
-      results: results.length ? results : DEMO_CARDS.map(normalizeCard),
+      results: results.length ? results : [...DEMO_CARDS.map(normalizeCard), ...DEMO_SEALED.map(normalizeSealed)],
+      hasMore: false,
+      page,
     });
   }
 
-  const cacheKey = `search:${q.toLowerCase()}`;
+  const cacheKey = `search:${q.toLowerCase()}:p${page}`;
   const cached = cacheGet(cacheKey);
   if (cached) return res.json(cached);
 
   try {
+    const headers = { Authorization: `Bearer ${API_KEY}` };
     // includeHistory/includeEbay require the paid API plan (3 credits per card).
-    const url = `${API_BASE}/cards?search=${encodeURIComponent(q)}&limit=12&includeHistory=true&includeEbay=true&days=30`;
-    const upstream = await fetch(url, {
-      headers: { Authorization: `Bearer ${API_KEY}` },
-    });
+    const cardsUrl = `${API_BASE}/cards?search=${encodeURIComponent(q)}&limit=${CARDS_PER_PAGE}&offset=${(page - 1) * CARDS_PER_PAGE}&includeHistory=true&includeEbay=true&days=30`;
+    const sealedUrl = `${API_BASE}/sealed-products?search=${encodeURIComponent(q)}&limit=${SEALED_PER_PAGE}&offset=${(page - 1) * SEALED_PER_PAGE}&includeHistory=true&days=30`;
 
+    const [cardsRes, sealedRes] = await Promise.allSettled([
+      fetch(cardsUrl, { headers }),
+      fetch(sealedUrl, { headers }),
+    ]);
+
+    if (cardsRes.status === 'rejected') {
+      console.error('Card search failed:', cardsRes.reason);
+      return res.status(502).json({ error: 'Could not reach the pricing API.' });
+    }
+    const upstream = cardsRes.value;
     if (upstream.status === 429) {
-      return res.status(429).json({ error: 'Rate limit reached on the pricing API. Try again in a minute (free tier: 100 credits/day).' });
+      return res.status(429).json({ error: 'Rate limit reached on the pricing API. Try again in a minute.' });
     }
     if (upstream.status === 401) {
       return res.status(502).json({ error: 'Pricing API rejected the API key. Check PPT_API_KEY.' });
@@ -364,9 +755,28 @@ app.get('/api/search', async (req, res) => {
 
     const body = await upstream.json();
     const rawCards = Array.isArray(body.data) ? body.data : Array.isArray(body) ? body : [];
+    const results = rawCards.map(normalizeCard);
+    let hasMore = body.metadata?.hasMore ?? rawCards.length === CARDS_PER_PAGE;
+
+    // Sealed products: best-effort — a failure here shouldn't break card search.
+    if (sealedRes.status === 'fulfilled' && sealedRes.value.ok) {
+      try {
+        const sealedBody = await sealedRes.value.json();
+        const rawSealed = Array.isArray(sealedBody.data) ? sealedBody.data : [];
+        results.push(...rawSealed.map(normalizeSealed));
+        hasMore = hasMore || (sealedBody.metadata?.hasMore ?? rawSealed.length === SEALED_PER_PAGE);
+      } catch (err) {
+        console.error('Sealed products parse failed:', err.message);
+      }
+    } else if (sealedRes.status === 'fulfilled' && !sealedRes.value.ok && sealedRes.value.status !== 404) {
+      console.error(`Sealed products search HTTP ${sealedRes.value.status}`);
+    }
+
     const payload = {
       demoMode: false,
-      results: rawCards.map(normalizeCard),
+      results,
+      hasMore,
+      page,
       creditsRemaining: upstream.headers.get('X-RateLimit-Daily-Remaining'),
     };
     cacheSet(cacheKey, payload);

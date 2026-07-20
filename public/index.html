@@ -145,6 +145,109 @@
   .stats div b { font-size: .88rem; }
   .panel-note { color: var(--muted); font-size: .72rem; margin-top: 8px; line-height: 1.4; }
   .panel-empty { color: var(--muted); }
+  .sealed-badge {
+    display: inline-block; background: var(--accent2); color: #fff;
+    border-radius: 6px; padding: 1px 7px; font-size: .7rem; font-weight: 700;
+    vertical-align: middle;
+  }
+  .topnav { display: flex; justify-content: center; gap: 8px; margin-top: 16px; }
+  .nav-btn {
+    padding: 8px 22px; border-radius: 20px; border: 1px solid var(--border);
+    background: var(--panel); color: var(--text); font-weight: 700; font-size: .9rem;
+    cursor: pointer;
+  }
+  .nav-btn.active { background: var(--accent); color: #1a1f3a; border-color: var(--accent); }
+  .add-pf { display: flex; gap: 6px; padding: 0 16px 12px; align-items: center; }
+  .add-pf select, .add-pf input {
+    background: var(--panel2); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: 6px 8px; font-size: .8rem;
+  }
+  .add-pf input { width: 58px; }
+  .add-pf button {
+    flex: 1; padding: 6px 10px; border-radius: 8px; border: none; cursor: pointer;
+    background: var(--accent2); color: #fff; font-weight: 700; font-size: .8rem;
+  }
+  .add-pf button:hover { filter: brightness(1.15); }
+  .pf-header {
+    display: flex; justify-content: space-between; align-items: center;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
+    padding: 16px 20px; margin-bottom: 16px;
+  }
+  .pf-total-label { color: var(--muted); font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; }
+  .pf-total { font-size: 1.8rem; font-weight: 800; color: var(--green); }
+  .pf-header button {
+    padding: 10px 18px; border-radius: 10px; border: 1px solid var(--border);
+    background: var(--panel2); color: var(--text); font-weight: 700; cursor: pointer;
+  }
+  .pf-item {
+    display: flex; gap: 12px; align-items: center;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    padding: 10px 14px; margin-bottom: 10px;
+  }
+  .pf-item img, .pf-item .placeholder {
+    width: 44px; height: 62px; object-fit: contain; background: var(--panel2);
+    border-radius: 6px; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  }
+  .pf-info { flex: 1; min-width: 0; }
+  .pf-info .name { font-weight: 700; font-size: .92rem; }
+  .pf-info .sub { color: var(--muted); font-size: .76rem; margin-top: 2px; }
+  .pf-qty { display: flex; align-items: center; gap: 6px; }
+  .pf-qty button {
+    width: 26px; height: 26px; border-radius: 6px; border: 1px solid var(--border);
+    background: var(--panel2); color: var(--text); cursor: pointer; font-weight: 700;
+  }
+  .pf-prices { text-align: right; min-width: 110px; }
+  .pf-prices .unit { color: var(--muted); font-size: .74rem; }
+  .pf-prices .line { color: var(--green); font-weight: 800; font-size: .95rem; }
+  .pf-remove {
+    border: none; background: none; color: #f87171; cursor: pointer; font-size: 1.1rem;
+    padding: 4px 6px;
+  }
+  .pf-controls { display: flex; gap: 8px; margin-bottom: 10px; }
+  .pf-controls input[type="text"] {
+    flex: 1; padding: 10px 14px; background: var(--panel); color: var(--text);
+    border: 1px solid var(--border); border-radius: 10px; font-size: .9rem; outline: none;
+  }
+  .pf-controls input[type="text"]:focus { border-color: var(--accent2); }
+  .pf-controls select, .pf-controls button {
+    padding: 10px 14px; background: var(--panel); color: var(--text);
+    border: 1px solid var(--border); border-radius: 10px; font-size: .88rem; cursor: pointer;
+  }
+  .pf-controls button.filters-on { border-color: var(--accent); color: var(--accent); }
+  .pf-filters {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    padding: 14px 16px; margin-bottom: 12px; display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-end;
+  }
+  .pf-filter-group label {
+    display: block; color: var(--muted); font-size: .72rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px;
+  }
+  .pf-chiprow { display: flex; gap: 5px; flex-wrap: wrap; }
+  .pf-chiprow button {
+    padding: 5px 12px; border-radius: 16px; border: 1px solid var(--border);
+    background: var(--panel2); color: var(--text); font-size: .78rem; font-weight: 600; cursor: pointer;
+  }
+  .pf-chiprow button.active { background: var(--accent); color: #1a1f3a; border-color: var(--accent); }
+  .pf-range { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: .85rem; }
+  .pf-range input {
+    width: 76px; padding: 6px 8px; background: var(--panel2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 8px; font-size: .85rem;
+  }
+  #pfClearFilters {
+    padding: 7px 14px; border-radius: 8px; border: 1px solid var(--border);
+    background: none; color: var(--muted); font-size: .8rem; cursor: pointer;
+  }
+  .pf-change { font-size: .74rem; font-weight: 700; }
+  .pf-change.up { color: var(--green); }
+  .pf-change.down { color: #f87171; }
+  .pf-change.flat { color: var(--muted); }
+  .load-more { text-align: center; margin: 20px 0; }
+  .load-more button {
+    padding: 12px 32px; border-radius: 10px; border: 1px solid var(--border);
+    background: var(--panel); color: var(--text); font-weight: 700; font-size: .92rem; cursor: pointer;
+  }
+  .load-more button:hover { border-color: var(--accent); color: var(--accent); }
+  .load-more button:disabled { opacity: .6; cursor: wait; }
   .card-footer { margin-top: auto; padding: 10px 16px 14px; }
   .card-footer a { color: var(--accent2); font-size: .82rem; text-decoration: none; }
   .card-footer a:hover { text-decoration: underline; }
@@ -161,18 +264,121 @@
 <header>
   <h1>Poke<span>Price</span> Lookup</h1>
   <p>TCGplayer market pricing by card condition &middot; updated daily</p>
+  <nav class="topnav">
+    <button type="button" class="nav-btn active" data-view="search">Market Search</button>
+    <button type="button" class="nav-btn" data-view="portfolio">Portfolio</button>
+    <button type="button" class="nav-btn logout" id="logoutBtn" style="display:none">Log out</button>
+  </nav>
 </header>
 
 <div class="container">
-  <form class="search-row" id="searchForm">
-    <input id="searchInput" type="text" placeholder="Search a card… e.g. Charizard, Pikachu, Umbreon VMAX" autocomplete="off" autofocus />
-    <button type="submit">Search</button>
-  </form>
-  <div class="status" id="status"></div>
-  <div class="banner" id="demoBanner"></div>
-  <div class="spinner" id="spinner"></div>
-  <div class="grid" id="results"></div>
-  <div class="empty" id="empty">Search for a Pokemon card to see its current market pricing.</div>
+  <section id="view-search">
+    <form class="search-row" id="searchForm">
+      <input id="searchInput" type="text" placeholder="Search cards or sealed… e.g. Charizard, Umbreon VMAX, booster box" autocomplete="off" autofocus />
+      <button type="submit">Search</button>
+    </form>
+    <div class="pf-controls">
+      <select id="msSort" aria-label="Sort results by" style="flex:1">
+        <option value="best">Best Match</option>
+        <option value="price_desc">Price: High to Low</option>
+        <option value="price_asc">Price: Low to High</option>
+        <option value="change_desc">Price Change: High to Low</option>
+        <option value="change_asc">Price Change: Low to High</option>
+        <option value="pct_desc">Percent Change: High to Low</option>
+        <option value="pct_asc">Percent Change: Low to High</option>
+        <option value="num_asc">Card Number: Low to High</option>
+        <option value="num_desc">Card Number: High to Low</option>
+        <option value="name_asc">Product Name: A to Z</option>
+        <option value="name_desc">Product Name: Z to A</option>
+      </select>
+      <button type="button" id="msFilterBtn">Filters</button>
+    </div>
+    <div class="pf-filters" id="msFilters" style="display:none">
+      <div class="pf-filter-group">
+        <label>Product type</label>
+        <div class="pf-chiprow" id="msType">
+          <button type="button" data-val="all" class="active">All</button>
+          <button type="button" data-val="cards">Cards Only</button>
+          <button type="button" data-val="sealed">Sealed Only</button>
+        </div>
+      </div>
+      <div class="pf-filter-group">
+        <label>Price range (market)</label>
+        <div class="pf-range">$ <input type="number" id="msPmin" min="0" placeholder="min"> to $ <input type="number" id="msPmax" min="0" placeholder="max"></div>
+      </div>
+      <button type="button" id="msClearFilters">Clear filters</button>
+    </div>
+    <div class="status" id="status"></div>
+    <div class="banner" id="demoBanner"></div>
+    <div class="spinner" id="spinner"></div>
+    <div class="grid" id="results"></div>
+    <div class="load-more" id="msMore" style="display:none">
+      <button type="button" id="msMoreBtn">Load more results</button>
+    </div>
+    <div class="empty" id="empty">Search for a Pokemon card to see its current market pricing.</div>
+  </section>
+
+  <section id="view-portfolio" style="display:none">
+    <div class="pf-header">
+      <div>
+        <div class="pf-total-label">Total portfolio value</div>
+        <div class="pf-total" id="pfTotal">—</div>
+      </div>
+      <button type="button" id="pfRefresh">Refresh prices</button>
+    </div>
+    <div class="pf-controls">
+      <input type="text" id="pfSearch" placeholder="Filter by name or set…" autocomplete="off" />
+      <select id="pfSort" aria-label="Sort by">
+        <option value="price_desc">Price: High to Low</option>
+        <option value="price_asc">Price: Low to High</option>
+        <option value="change_desc">Price Change: High to Low</option>
+        <option value="change_asc">Price Change: Low to High</option>
+        <option value="pct_desc">Percent Change: High to Low</option>
+        <option value="pct_asc">Percent Change: Low to High</option>
+        <option value="num_asc">Card Number: Low to High</option>
+        <option value="num_desc">Card Number: High to Low</option>
+        <option value="name_asc">Product Name: A to Z</option>
+        <option value="name_desc">Product Name: Z to A</option>
+        <option value="added_desc">Date Added: Newest First</option>
+        <option value="added_asc">Date Added: Oldest First</option>
+      </select>
+      <button type="button" id="pfFilterBtn">Filters</button>
+    </div>
+    <div class="pf-filters" id="pfFilters" style="display:none">
+      <div class="pf-filter-group">
+        <label>Product type</label>
+        <div class="pf-chiprow" id="pfType">
+          <button type="button" data-val="all" class="active">All</button>
+          <button type="button" data-val="cards">Cards Only</button>
+          <button type="button" data-val="sealed">Sealed Only</button>
+        </div>
+      </div>
+      <div class="pf-filter-group">
+        <label>Condition</label>
+        <div class="pf-chiprow" id="pfCond">
+          <button type="button" data-val="NM">NM</button>
+          <button type="button" data-val="LP">LP</button>
+          <button type="button" data-val="MP">MP</button>
+          <button type="button" data-val="HP">HP</button>
+          <button type="button" data-val="DM">DM</button>
+          <button type="button" data-val="SEALED">Sealed</button>
+        </div>
+      </div>
+      <div class="pf-filter-group">
+        <label>Price range (each)</label>
+        <div class="pf-range">$ <input type="number" id="pfPmin" min="0" placeholder="min"> to $ <input type="number" id="pfPmax" min="0" placeholder="max"></div>
+      </div>
+      <div class="pf-filter-group">
+        <label>Quantity owned</label>
+        <div class="pf-range"><input type="number" id="pfQmin" min="0" placeholder="min"> to <input type="number" id="pfQmax" min="0" placeholder="max"></div>
+      </div>
+      <button type="button" id="pfClearFilters">Clear filters</button>
+    </div>
+    <div class="status" id="pfStatus"></div>
+    <div class="spinner" id="pfSpinner"></div>
+    <div id="pfList"></div>
+    <div class="empty" id="pfEmpty" style="display:none">Your portfolio is empty. Find items in Market Search and click "+ Portfolio".</div>
+  </section>
 </div>
 
 <script>
@@ -196,54 +402,166 @@
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-  form.addEventListener('submit', async (e) => {
+  let lastQuery = null;
+  let lastSearchMeta = null;
+
+  /* ---- Search sort/filter state (persisted in the URL hash) ---- */
+
+  const MS_DEFAULTS = { sort: 'best', type: 'all', pmin: '', pmax: '' };
+  let msState = { ...MS_DEFAULTS };
+  const MS_SORTS = ['best','price_desc','price_asc','change_desc','change_asc','pct_desc','pct_asc','num_asc','num_desc','name_asc','name_desc'];
+  let msPages = 1;      // how many pages are loaded (restored from URL on refresh)
+  let msHasMore = false;
+
+  function encodeSearchHash(q) {
+    const p = new URLSearchParams();
+    p.set('q', q);
+    if (msState.sort !== MS_DEFAULTS.sort) p.set('sort', msState.sort);
+    if (msState.type !== MS_DEFAULTS.type) p.set('type', msState.type);
+    if (msState.pmin !== '') p.set('pmin', msState.pmin);
+    if (msState.pmax !== '') p.set('pmax', msState.pmax);
+    if (msPages > 1) p.set('pages', String(msPages));
+    return 'search?' + p.toString();
+  }
+
+  function pushMsHash() {
+    if (lastQuery) history.replaceState(null, '', '#' + encodeSearchHash(lastQuery));
+  }
+
+  function msFiltersActive() {
+    return msState.type !== 'all' || msState.pmin !== '' || msState.pmax !== '';
+  }
+
+  function syncMsControls() {
+    document.getElementById('msSort').value = msState.sort;
+    document.querySelectorAll('#msType button').forEach((b) => b.classList.toggle('active', b.dataset.val === msState.type));
+    document.getElementById('msPmin').value = msState.pmin;
+    document.getElementById('msPmax').value = msState.pmax;
+    document.getElementById('msFilterBtn').classList.toggle('filters-on', msFiltersActive());
+    if (msFiltersActive()) document.getElementById('msFilters').style.display = '';
+  }
+
+  function renderSearchResults() {
+    const tiles = [];
+    cardsData.forEach((card, ci) => card.variants.forEach((v, vi) => tiles.push({ card, ci, v, vi })));
+    const filtered = tiles.filter((t) => {
+      if (msState.type === 'cards' && t.card.sealed) return false;
+      if (msState.type === 'sealed' && !t.card.sealed) return false;
+      if (msState.pmin !== '' && (t.v.market === null || t.v.market < Number(msState.pmin))) return false;
+      if (msState.pmax !== '' && (t.v.market === null || t.v.market > Number(msState.pmax))) return false;
+      return true;
+    });
+    const pctOf = (t) => t.v.history?.change30d ?? t.v.history?.change7d ?? null;
+    const dollarOf = (t) => {
+      const p = pctOf(t);
+      return p !== null && t.v.market !== null && t.v.market !== undefined ? t.v.market - t.v.market / (1 + p / 100) : null;
+    };
+    const MS_CMP = {
+      price_desc: (a, b) => (b.v.market ?? -1) - (a.v.market ?? -1),
+      price_asc: (a, b) => (a.v.market ?? Infinity) - (b.v.market ?? Infinity),
+      change_desc: (a, b) => (dollarOf(b) ?? -Infinity) - (dollarOf(a) ?? -Infinity),
+      change_asc: (a, b) => (dollarOf(a) ?? Infinity) - (dollarOf(b) ?? Infinity),
+      pct_desc: (a, b) => (pctOf(b) ?? -Infinity) - (pctOf(a) ?? -Infinity),
+      pct_asc: (a, b) => (pctOf(a) ?? Infinity) - (pctOf(b) ?? Infinity),
+      num_asc: (a, b) => numFrom(a.card.number) - numFrom(b.card.number),
+      num_desc: (a, b) => numFrom(b.card.number) === Infinity ? -1 : numFrom(b.card.number) - numFrom(a.card.number),
+      name_asc: (a, b) => a.card.name.localeCompare(b.card.name),
+      name_desc: (a, b) => b.card.name.localeCompare(a.card.name),
+    };
+    if (MS_CMP[msState.sort]) filtered.sort(MS_CMP[msState.sort]);
+    grid.innerHTML = filtered.map((t) => renderTile(t.card, t.ci, t.v, t.vi)).join('');
+    wireGradedSections();
+    const countText = msFiltersActive()
+      ? `Showing ${filtered.length} of ${tiles.length} results`
+      : `${tiles.length} result${tiles.length === 1 ? '' : 's'}`;
+    statusEl.textContent = countText
+      + (lastSearchMeta?.creditsRemaining ? ' · API credits remaining today: ' + lastSearchMeta.creditsRemaining : '');
+    document.getElementById('msMore').style.display = msHasMore && cardsData.length ? '' : 'none';
+  }
+
+  form.addEventListener('submit', (e) => {
     e.preventDefault();
     const q = input.value.trim();
     if (q.length < 2) { statusEl.textContent = 'Enter at least 2 characters.'; return; }
+    msPages = 1; // new query starts back at one page
+    const target = encodeSearchHash(q);
+    if (location.hash.slice(1) === target) performSearch(q); // same query: hashchange won't fire
+    else location.hash = target;
+  });
 
+  async function fetchSearchPage(q, page) {
+    const res = await fetch('/api/search?q=' + encodeURIComponent(q) + '&page=' + page);
+    const data = await res.json();
+    if (!res.ok) {
+      statusEl.textContent = data.error || 'Something went wrong.';
+      return false;
+    }
+    if (data.demoMode && data.note) {
+      banner.textContent = data.note;
+      banner.style.display = 'block';
+    }
+    cardsData.push(...(data.results || []));
+    msHasMore = !!data.hasMore;
+    lastSearchMeta = { creditsRemaining: data.creditsRemaining };
+    return true;
+  }
+
+  async function performSearch(q) {
+    lastQuery = q;
+    cardsData = [];
+    msHasMore = false;
     grid.innerHTML = '';
     empty.style.display = 'none';
     banner.style.display = 'none';
     statusEl.textContent = '';
     spinner.style.display = 'block';
+    document.getElementById('msMore').style.display = 'none';
 
     try {
-      const res = await fetch('/api/search?q=' + encodeURIComponent(q));
-      const data = await res.json();
+      // Restore however many pages were loaded before a refresh.
+      for (let p = 1; p <= msPages; p++) {
+        const ok = await fetchSearchPage(q, p);
+        if (!ok) { spinner.style.display = 'none'; return; }
+        if (!msHasMore) { msPages = p; break; }
+      }
       spinner.style.display = 'none';
 
-      if (!res.ok) { statusEl.textContent = data.error || 'Something went wrong.'; return; }
-
-      if (data.demoMode) {
-        banner.textContent = data.note;
-        banner.style.display = 'block';
-      }
-
-      if (!data.results || data.results.length === 0) {
+      if (cardsData.length === 0) {
         empty.style.display = 'block';
         empty.textContent = 'No cards found for "' + q + '". Try a different name.';
         return;
       }
-
-      cardsData = data.results;
-
-      statusEl.textContent = data.results.length + ' result' + (data.results.length === 1 ? '' : 's')
-        + (data.creditsRemaining ? ' · API credits remaining today: ' + data.creditsRemaining : '');
-
-      grid.innerHTML = data.results.map(renderCard).join('');
-      wireGradedSections();
+      renderSearchResults();
     } catch (err) {
       spinner.style.display = 'none';
       statusEl.textContent = 'Network error — please try again.';
     }
+  }
+
+  document.getElementById('msMoreBtn').addEventListener('click', async () => {
+    if (!lastQuery || !msHasMore) return;
+    const btn = document.getElementById('msMoreBtn');
+    btn.disabled = true;
+    btn.textContent = 'Loading…';
+    try {
+      const ok = await fetchSearchPage(lastQuery, msPages + 1);
+      if (ok) {
+        msPages++;
+        pushMsHash();
+        renderSearchResults();
+      }
+    } catch {
+      statusEl.textContent = 'Network error — please try again.';
+    }
+    btn.disabled = false;
+    btn.textContent = 'Load more results';
   });
 
   let cardsData = [];
   const GRADERS = ['PSA', 'BGS', 'CGC'];
 
-  function renderCard(card, cardIdx) {
-    // One card may have multiple printings (normal / holofoil / reverse holo)
-    return card.variants.map((v, vi) => {
+  function renderTile(card, cardIdx, v, vi) {
+    return ((v, vi) => {
       const conds = v.conditions || {};
       const hasConds = Object.keys(conds).length > 0;
       const rows = Object.keys(CONDITION_LABELS).map((code) => `
@@ -263,25 +581,32 @@
             ? `<img src="${esc(card.image)}" alt="${esc(card.name)}" loading="lazy" onerror="this.outerHTML='<div class=placeholder>🃏</div>'">`
             : '<div class="placeholder">🃏</div>'}
           <div>
-            <h3>${esc(card.name)}</h3>
+            <h3>${card.sealed ? '<span class="sealed-badge">📦 Sealed</span> ' : ''}${esc(card.name)}</h3>
             <div class="meta">
               ${esc(card.set)}${card.number ? ' · #' + esc(card.number) + (card.totalSetNumber ? '/' + esc(card.totalSetNumber) : '') : ''}<br>
               ${esc(card.rarity)}
             </div>
-            <div class="market">${usd(v.market)}${trendBadge(card.history)}<small>TCGplayer market price</small></div>
+            <div class="market">${usd(v.market)}${trendBadge(v.history || card.history)}<small>TCGplayer market price</small></div>
             ${v.printing ? `<span class="printing">${esc(v.printing)}</span>` : ''}
           </div>
         </div>
-        <table>
+        ${card.sealed
+          ? `<table><tbody><tr><td class="cond-name" style="padding:8px 16px 14px;border-top:1px solid var(--border)">Sealed product — condition pricing not applicable${v.low !== null && v.low !== undefined ? ' · lowest listing ' + usd(v.low).replace(/<[^>]*>/g, '') : ''}</td></tr></tbody></table>`
+          : `<table>
           <thead><tr><th>Condition</th><th style="text-align:right">Price</th></tr></thead>
           <tbody>${hasConds ? rows + footnote : `<tr><td colspan="2" class="cond-name" style="padding-bottom:14px">Condition breakdown not available for this card${v.low !== null && v.low !== undefined ? ' · lowest listing ' + usd(v.low).replace(/<[^>]*>/g, '') : ''}</td></tr>`}</tbody>
-        </table>
+        </table>`}
         ${vi === 0 ? gradedSection(card, cardIdx) : ''}
+        <div class="add-pf" data-card="${cardIdx}" data-variant="${vi}">
+          ${card.sealed ? '' : `<select class="pf-cond" aria-label="Condition">${Object.keys(CONDITION_LABELS).map((c) => `<option value="${c}">${CONDITION_LABELS[c]}</option>`).join('')}</select>`}
+          <input class="pf-qty-in" type="number" min="1" max="999" value="1" aria-label="Quantity">
+          <button type="button" class="pf-add">+ Portfolio</button>
+        </div>
         <div class="card-footer">
           ${card.tcgPlayerUrl ? `<a href="${esc(card.tcgPlayerUrl)}" target="_blank" rel="noopener">View on TCGplayer →</a>` : ''}
         </div>
       </div>`;
-    }).join('');
+    })(v, vi);
   }
 
   function trendBadge(history) {
@@ -365,6 +690,358 @@
     const t = new Date(d);
     return isNaN(t) ? '—' : t.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   }
+
+  /* ------------------------------ Navigation ------------------------------ */
+
+  // Show logout only when auth is on; send API 401s back to the login page.
+  fetch('/api/health').then((r) => r.json()).then((h) => {
+    if (h.authEnabled) document.getElementById('logoutBtn').style.display = '';
+  }).catch(() => {});
+  document.getElementById('logoutBtn').addEventListener('click', async () => {
+    try { await fetch('/api/logout', { method: 'POST' }); } catch {}
+    location.href = '/login.html';
+  });
+
+  const views = { search: document.getElementById('view-search'), portfolio: document.getElementById('view-portfolio') };
+
+  function showView(raw) {
+    let name = raw;
+    let query = null;
+    let pfParams = null;
+    if (raw && raw.startsWith('search=')) {
+      // Legacy hash format: search=<query>
+      name = 'search';
+      try { query = decodeURIComponent(raw.slice(7)); } catch {}
+    } else if (raw && raw.startsWith('search')) {
+      name = 'search';
+      const qi = raw.indexOf('?');
+      if (qi > -1) {
+        const p = new URLSearchParams(raw.slice(qi + 1));
+        query = p.get('q') || null;
+        msState = {
+          sort: MS_SORTS.includes(p.get('sort')) ? p.get('sort') : MS_DEFAULTS.sort,
+          type: ['cards', 'sealed'].includes(p.get('type')) ? p.get('type') : 'all',
+          pmin: p.get('pmin') ?? '',
+          pmax: p.get('pmax') ?? '',
+        };
+        msPages = Math.max(1, Math.min(20, Math.floor(Number(p.get('pages'))) || 1));
+      }
+    } else if (raw && raw.startsWith('portfolio')) {
+      name = 'portfolio';
+      const qi = raw.indexOf('?');
+      if (qi > -1) pfParams = raw.slice(qi + 1);
+    }
+    if (!views[name]) name = 'search';
+    document.querySelectorAll('.nav-btn:not(.logout)').forEach((b) => b.classList.toggle('active', b.dataset.view === name));
+    Object.entries(views).forEach(([n, el]) => { el.style.display = n === name ? '' : 'none'; });
+    if (name === 'portfolio') {
+      parsePfParams(pfParams);
+      syncPfControls();
+      if (pfItems === null) loadPortfolio();
+      else renderPfList();
+    } else {
+      syncMsControls();
+      if (query && query.length >= 2 && query !== lastQuery) {
+        input.value = query;
+        performSearch(query);
+      } else if (cardsData.length) {
+        renderSearchResults();
+      }
+    }
+  }
+
+  document.querySelectorAll('.nav-btn:not(.logout)').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      // Keep each tab's state (query, sort, filters) when switching back to it.
+      location.hash = btn.dataset.view === 'portfolio' ? encodePfHash()
+        : lastQuery ? encodeSearchHash(lastQuery) : 'search';
+    });
+  });
+
+  // The hash keeps the active view across refreshes and enables back/forward.
+  window.addEventListener('hashchange', () => showView(location.hash.slice(1)));
+  // NOTE: initial showView() runs at the end of this script, after all state is declared.
+
+  /* --------------------------- Add to portfolio --------------------------- */
+
+  grid.addEventListener('click', async (e) => {
+    const btn = e.target.closest('.pf-add');
+    if (!btn) return;
+    const wrap = btn.closest('.add-pf');
+    const card = cardsData[Number(wrap.dataset.card)];
+    const variant = card?.variants[Number(wrap.dataset.variant)];
+    if (!card || !variant) return;
+    const qty = Math.max(1, Math.min(999, Number(wrap.querySelector('.pf-qty-in').value) || 1));
+    const condition = card.sealed ? 'SEALED' : wrap.querySelector('.pf-cond').value;
+    btn.disabled = true;
+    btn.textContent = 'Adding…';
+    try {
+      const res = await fetch('/api/portfolio', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: card.id, sealed: !!card.sealed, name: card.name, set: card.set, number: card.number,
+          printing: variant.printing, condition, qty, image: card.image, tcgPlayerUrl: card.tcgPlayerUrl,
+        }),
+      });
+      btn.textContent = res.ok ? '✓ Added' : 'Failed';
+    } catch {
+      btn.textContent = 'Failed';
+    }
+    setTimeout(() => { btn.textContent = '+ Portfolio'; btn.disabled = false; }, 1500);
+  });
+
+  /* ------------------------------- Portfolio ------------------------------ */
+
+  const pfList = document.getElementById('pfList');
+  const pfTotal = document.getElementById('pfTotal');
+  const pfStatus = document.getElementById('pfStatus');
+  const pfSpinner = document.getElementById('pfSpinner');
+  const pfEmpty = document.getElementById('pfEmpty');
+  document.getElementById('pfRefresh').addEventListener('click', loadPortfolio);
+
+  const CONDITION_SHORT = { NM: 'Near Mint', LP: 'Lightly Played', MP: 'Moderately Played', HP: 'Heavily Played', DM: 'Damaged', SEALED: 'Sealed' };
+
+  /* ---- Portfolio sort/filter state (persisted in the URL hash) ---- */
+
+  let pfItems = null;
+  let pfTotalAll = 0;
+  const PF_DEFAULTS = { sort: 'price_desc', q: '', type: 'all', cond: [], pmin: '', pmax: '', qmin: '', qmax: '' };
+  let pfState = { ...PF_DEFAULTS, cond: [] };
+  const PF_SORTS = ['price_desc','price_asc','change_desc','change_asc','pct_desc','pct_asc','num_asc','num_desc','name_asc','name_desc','added_desc','added_asc'];
+
+  function encodePfHash() {
+    const p = new URLSearchParams();
+    if (pfState.sort !== PF_DEFAULTS.sort) p.set('sort', pfState.sort);
+    if (pfState.q) p.set('q', pfState.q);
+    if (pfState.type !== 'all') p.set('type', pfState.type);
+    if (pfState.cond.length) p.set('cond', pfState.cond.join(','));
+    for (const k of ['pmin', 'pmax', 'qmin', 'qmax']) if (pfState[k] !== '') p.set(k, pfState[k]);
+    const s = p.toString();
+    return 'portfolio' + (s ? '?' + s : '');
+  }
+
+  function pushPfHash() {
+    // replaceState avoids one history entry per keystroke and hashchange loops.
+    history.replaceState(null, '', '#' + encodePfHash());
+  }
+
+  function parsePfParams(str) {
+    const p = new URLSearchParams(str || '');
+    pfState = {
+      sort: PF_SORTS.includes(p.get('sort')) ? p.get('sort') : PF_DEFAULTS.sort,
+      q: p.get('q') || '',
+      type: ['cards', 'sealed'].includes(p.get('type')) ? p.get('type') : 'all',
+      cond: (p.get('cond') || '').split(',').filter((c) => CONDITION_SHORT[c]),
+      pmin: p.get('pmin') ?? '', pmax: p.get('pmax') ?? '',
+      qmin: p.get('qmin') ?? '', qmax: p.get('qmax') ?? '',
+    };
+  }
+
+  function pfFiltersActive() {
+    return pfState.q !== '' || pfState.type !== 'all' || pfState.cond.length > 0
+      || pfState.pmin !== '' || pfState.pmax !== '' || pfState.qmin !== '' || pfState.qmax !== '';
+  }
+
+  function syncPfControls() {
+    document.getElementById('pfSearch').value = pfState.q;
+    document.getElementById('pfSort').value = pfState.sort;
+    document.querySelectorAll('#pfType button').forEach((b) => b.classList.toggle('active', b.dataset.val === pfState.type));
+    document.querySelectorAll('#pfCond button').forEach((b) => b.classList.toggle('active', pfState.cond.includes(b.dataset.val)));
+    document.getElementById('pfPmin').value = pfState.pmin;
+    document.getElementById('pfPmax').value = pfState.pmax;
+    document.getElementById('pfQmin').value = pfState.qmin;
+    document.getElementById('pfQmax').value = pfState.qmax;
+    const active = pfFiltersActive();
+    document.getElementById('pfFilterBtn').classList.toggle('filters-on', active);
+    if (active) document.getElementById('pfFilters').style.display = '';
+  }
+
+  const numFrom = (s) => { const m = String(s || '').match(/\d+(\.\d+)?/); return m ? parseFloat(m[0]) : Infinity; };
+  const PF_COMPARATORS = {
+    price_desc: (a, b) => (b.unitPrice ?? -1) - (a.unitPrice ?? -1),
+    price_asc: (a, b) => (a.unitPrice ?? Infinity) - (b.unitPrice ?? Infinity),
+    change_desc: (a, b) => (b.unitChange ?? -Infinity) - (a.unitChange ?? -Infinity),
+    change_asc: (a, b) => (a.unitChange ?? Infinity) - (b.unitChange ?? Infinity),
+    pct_desc: (a, b) => (b.unitChangePct ?? -Infinity) - (a.unitChangePct ?? -Infinity),
+    pct_asc: (a, b) => (a.unitChangePct ?? Infinity) - (b.unitChangePct ?? Infinity),
+    num_asc: (a, b) => numFrom(a.number) - numFrom(b.number),
+    num_desc: (a, b) => numFrom(b.number) === Infinity ? -1 : numFrom(b.number) - numFrom(a.number),
+    name_asc: (a, b) => a.name.localeCompare(b.name),
+    name_desc: (a, b) => b.name.localeCompare(a.name),
+    added_desc: (a, b) => new Date(b.addedAt) - new Date(a.addedAt),
+    added_asc: (a, b) => new Date(a.addedAt) - new Date(b.addedAt),
+  };
+
+  function pfFiltered() {
+    return pfItems.filter((i) => {
+      if (pfState.q && !(i.name + ' ' + i.set).toLowerCase().includes(pfState.q.toLowerCase())) return false;
+      if (pfState.type === 'cards' && i.sealed) return false;
+      if (pfState.type === 'sealed' && !i.sealed) return false;
+      if (pfState.cond.length && !pfState.cond.includes(i.condition)) return false;
+      if (pfState.pmin !== '' && (i.unitPrice === null || i.unitPrice < Number(pfState.pmin))) return false;
+      if (pfState.pmax !== '' && (i.unitPrice === null || i.unitPrice > Number(pfState.pmax))) return false;
+      if (pfState.qmin !== '' && i.qty < Number(pfState.qmin)) return false;
+      if (pfState.qmax !== '' && i.qty > Number(pfState.qmax)) return false;
+      return true;
+    });
+  }
+
+  function changeBadge(item) {
+    if (item.unitChange === null || item.unitChange === undefined) return '';
+    const dir = item.unitChange > 0 ? 'up' : item.unitChange < 0 ? 'down' : 'flat';
+    const arrow = item.unitChange > 0 ? '▲' : item.unitChange < 0 ? '▼' : '·';
+    const pct = item.unitChangePct !== null && item.unitChangePct !== undefined ? ` (${Math.abs(item.unitChangePct)}%)` : '';
+    return `<div class="pf-change ${dir}" title="Change since previous day's sales">${arrow} $${Math.abs(item.unitChange).toFixed(2)}${pct}</div>`;
+  }
+
+  function renderPfList() {
+    if (pfItems === null) return;
+    const shown = pfFiltered().sort(PF_COMPARATORS[pfState.sort] || PF_COMPARATORS.price_desc);
+    pfTotal.textContent = '$' + Number(pfTotalAll || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    pfEmpty.style.display = pfItems.length ? 'none' : 'block';
+    if (pfFiltersActive()) {
+      const shownValue = shown.reduce((s, i) => s + (i.lineValue ?? 0), 0);
+      pfStatus.textContent = `Showing ${shown.length} of ${pfItems.length} items · filtered value $${shownValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    } else {
+      pfStatus.textContent = pfItems.length ? `${pfItems.length} item${pfItems.length === 1 ? '' : 's'}` : '';
+    }
+    pfList.innerHTML = shown.map((item) => `
+      <div class="pf-item" data-key="${esc(item.key)}">
+        ${item.image ? `<img src="${esc(item.image)}" alt="" loading="lazy">` : '<div class="placeholder">🃏</div>'}
+        <div class="pf-info">
+          <div class="name">${item.sealed ? '<span class="sealed-badge">📦</span> ' : ''}${esc(item.name)}</div>
+          <div class="sub">${esc(item.set)}${item.number ? ' · #' + esc(item.number) : ''} · ${esc(item.printing)} · ${esc(CONDITION_SHORT[item.condition] || item.condition)}</div>
+        </div>
+        <div class="pf-qty">
+          <button type="button" class="qty-dec" aria-label="Decrease">−</button>
+          <span>${item.qty}</span>
+          <button type="button" class="qty-inc" aria-label="Increase">+</button>
+        </div>
+        <div class="pf-prices">
+          <div class="line">${usd(item.lineValue)}</div>
+          <div class="unit">${usd(item.unitPrice).replace(/<[^>]*>/g, '—')} each${
+            item.condition === 'SEALED' ? ''
+            : item.priceBasis === 'condition' ? ' (' + esc(item.condition) + ')'
+            : item.priceBasis === 'market' ? ` <span title="No current ${esc(item.condition)} sales data — using market price">(market*)</span>`
+            : ''}</div>
+          ${changeBadge(item)}
+        </div>
+        <button type="button" class="pf-remove" aria-label="Remove" title="Remove">✕</button>
+      </div>`).join('');
+    window.__pfItems = Object.fromEntries(shown.map((i) => [i.key, i]));
+  }
+
+  async function loadPortfolio() {
+    pfSpinner.style.display = 'block';
+    pfStatus.textContent = '';
+    try {
+      const res = await fetch('/api/portfolio');
+      const data = await res.json();
+      pfSpinner.style.display = 'none';
+      if (!res.ok) { pfStatus.textContent = data.error || 'Could not load portfolio.'; return; }
+      pfItems = data.items;
+      pfTotalAll = data.totalValue;
+      renderPfList();
+    } catch {
+      pfSpinner.style.display = 'none';
+      pfStatus.textContent = 'Network error — please try again.';
+    }
+  }
+
+  /* ---- Portfolio control wiring ---- */
+
+  let pfSearchTimer = null;
+  document.getElementById('pfSearch').addEventListener('input', (e) => {
+    clearTimeout(pfSearchTimer);
+    pfSearchTimer = setTimeout(() => { pfState.q = e.target.value.trim(); pushPfHash(); syncPfControls(); renderPfList(); }, 250);
+  });
+  document.getElementById('pfSort').addEventListener('change', (e) => {
+    pfState.sort = e.target.value; pushPfHash(); renderPfList();
+  });
+  document.getElementById('pfFilterBtn').addEventListener('click', () => {
+    const el = document.getElementById('pfFilters');
+    el.style.display = el.style.display === 'none' ? '' : 'none';
+  });
+  document.getElementById('pfType').addEventListener('click', (e) => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    pfState.type = btn.dataset.val;
+    pushPfHash(); syncPfControls(); renderPfList();
+  });
+  document.getElementById('pfCond').addEventListener('click', (e) => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    const val = btn.dataset.val;
+    pfState.cond = pfState.cond.includes(val) ? pfState.cond.filter((c) => c !== val) : [...pfState.cond, val];
+    pushPfHash(); syncPfControls(); renderPfList();
+  });
+  for (const id of ['pfPmin', 'pfPmax', 'pfQmin', 'pfQmax']) {
+    document.getElementById(id).addEventListener('input', (e) => {
+      clearTimeout(pfSearchTimer);
+      pfSearchTimer = setTimeout(() => {
+        const k = { pfPmin: 'pmin', pfPmax: 'pmax', pfQmin: 'qmin', pfQmax: 'qmax' }[id];
+        pfState[k] = e.target.value === '' ? '' : String(Math.max(0, Number(e.target.value)));
+        pushPfHash(); renderPfList();
+      }, 300);
+    });
+  }
+  document.getElementById('pfClearFilters').addEventListener('click', () => {
+    pfState = { ...PF_DEFAULTS, cond: [], sort: pfState.sort };
+    pushPfHash(); syncPfControls(); renderPfList();
+  });
+
+  /* ---- Market Search control wiring ---- */
+
+  document.getElementById('msSort').addEventListener('change', (e) => {
+    msState.sort = e.target.value; pushMsHash(); if (cardsData.length) renderSearchResults();
+  });
+  document.getElementById('msFilterBtn').addEventListener('click', () => {
+    const el = document.getElementById('msFilters');
+    el.style.display = el.style.display === 'none' ? '' : 'none';
+  });
+  document.getElementById('msType').addEventListener('click', (e) => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    msState.type = btn.dataset.val;
+    pushMsHash(); syncMsControls(); if (cardsData.length) renderSearchResults();
+  });
+  let msRangeTimer = null;
+  for (const id of ['msPmin', 'msPmax']) {
+    document.getElementById(id).addEventListener('input', (e) => {
+      clearTimeout(msRangeTimer);
+      msRangeTimer = setTimeout(() => {
+        msState[id === 'msPmin' ? 'pmin' : 'pmax'] = e.target.value === '' ? '' : String(Math.max(0, Number(e.target.value)));
+        pushMsHash(); syncMsControls(); if (cardsData.length) renderSearchResults();
+      }, 300);
+    });
+  }
+  document.getElementById('msClearFilters').addEventListener('click', () => {
+    msState = { ...MS_DEFAULTS, sort: msState.sort };
+    pushMsHash(); syncMsControls(); if (cardsData.length) renderSearchResults();
+  });
+
+  // Initial route — after all view/portfolio state above is declared.
+  showView(location.hash.slice(1) || 'search');
+
+  pfList.addEventListener('click', async (e) => {
+    const row = e.target.closest('.pf-item');
+    if (!row) return;
+    const key = row.dataset.key;
+    const item = window.__pfItems?.[key];
+    if (!item) return;
+    let action = null;
+    if (e.target.closest('.qty-inc')) action = { url: '/api/portfolio/update', body: { key, qty: item.qty + 1 } };
+    else if (e.target.closest('.qty-dec')) action = { url: '/api/portfolio/update', body: { key, qty: item.qty - 1 } };
+    else if (e.target.closest('.pf-remove')) action = { url: '/api/portfolio/remove', body: { key } };
+    if (!action) return;
+    try {
+      await fetch(action.url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(action.body) });
+      loadPortfolio();
+    } catch {
+      pfStatus.textContent = 'Update failed — please try again.';
+    }
+  });
 </script>
 </body>
 </html>

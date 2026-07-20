@@ -13,6 +13,12 @@ applications:
       build: |
         npm ci --omit=dev
 
+    # Writable storage for the shared portfolio (app filesystem is read-only).
+    mounts:
+      "data":
+        source: storage
+        source_path: "data"
+
     web:
       commands:
         start: "node server.js"
