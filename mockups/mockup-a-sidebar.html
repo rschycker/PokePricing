@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Mockup A — Sidebar + image-forward grid (pkmn.gg faithful)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #17181c; --bg2: #1e2025; --panel: #24262c; --border: #2e3138;
+    --text: #f4f5f7; --muted: #8b909a; --accent: #f8d34a; --green: #3ddc84; --red: #ff6b6b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg); color: var(--text); display: flex; min-height: 100vh; }
+
+  /* Sidebar */
+  aside {
+    width: 232px; background: var(--bg2); border-right: 1px solid var(--border);
+    padding: 18px 14px; flex-shrink: 0; display: flex; flex-direction: column; gap: 4px;
+  }
+  .logo { display: flex; align-items: center; gap: 10px; padding: 4px 8px 22px; }
+  .logo-badge { width: 34px; height: 34px; background: var(--accent); border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; }
+  .logo b { font-size: 1.15rem; font-weight: 800; }
+  .logo b span { color: var(--accent); }
+  .nav-item {
+    display: flex; align-items: center; gap: 12px; padding: 11px 12px; border-radius: 10px;
+    color: var(--muted); font-weight: 600; font-size: .92rem; cursor: pointer;
+  }
+  .nav-item:hover { background: var(--panel); color: var(--text); }
+  .nav-item.active { background: var(--panel); color: var(--text); }
+  .nav-item.active .ico { color: var(--accent); }
+  .nav-item .ico { width: 20px; text-align: center; }
+  .nav-spacer { flex: 1; }
+
+  /* Topbar */
+  main { flex: 1; min-width: 0; }
+  .topbar {
+    display: flex; align-items: center; gap: 14px; padding: 14px 28px;
+    background: var(--bg2); border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 5;
+  }
+  .searchwrap {
+    flex: 1; max-width: 460px; display: flex; align-items: center; gap: 10px;
+    background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 10px 14px;
+  }
+  .searchwrap input { flex: 1; background: none; border: none; outline: none; color: var(--text); font-size: .95rem; font-family: inherit; }
+  .searchwrap .filter-ico { color: var(--muted); cursor: pointer; }
+  .top-right { margin-left: auto; display: flex; gap: 10px; }
+  .pill { padding: 10px 22px; border-radius: 24px; font-weight: 700; font-size: .88rem; cursor: pointer; border: none; }
+  .pill.dark { background: var(--panel); color: var(--text); }
+  .pill.yellow { background: var(--accent); color: #17181c; }
+
+  /* Content */
+  .content { padding: 34px 28px 60px; max-width: 1200px; margin: 0 auto; }
+  h1 { text-align: center; font-size: 2.6rem; font-weight: 800; letter-spacing: -.5px; }
+  h1 q { color: var(--accent); font-style: normal; }
+  .subtitle { text-align: center; color: var(--muted); font-weight: 600; font-size: .9rem; margin: 8px 0 30px; }
+
+  .toolbar { display: flex; gap: 10px; justify-content: center; margin-bottom: 28px; }
+  .toolbar select, .toolbar button {
+    background: var(--panel); color: var(--text); border: 1px solid var(--border);
+    border-radius: 20px; padding: 8px 18px; font-size: .84rem; font-weight: 600; font-family: inherit; cursor: pointer;
+  }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 22px 18px; }
+  .tile { cursor: pointer; }
+  .imgwrap { position: relative; border-radius: 12px; overflow: hidden; background: var(--panel); aspect-ratio: 3/4.15; }
+  .imgwrap img { width: 100%; height: 100%; object-fit: cover; transition: transform .15s; }
+  .tile:hover .imgwrap img { transform: scale(1.03); }
+  .chip {
+    position: absolute; bottom: 8px; left: 8px; background: rgba(23,24,28,.85);
+    color: var(--text); font-size: .68rem; font-weight: 700; border-radius: 6px; padding: 4px 8px;
+  }
+  .chip.sealed { background: var(--accent); color: #17181c; }
+  .setmark {
+    position: absolute; top: 8px; right: 8px; background: rgba(23,24,28,.85); color: var(--accent);
+    font-size: .64rem; font-weight: 800; padding: 4px 7px; border-radius: 6px; letter-spacing: .04em;
+  }
+  .tile-meta { display: flex; justify-content: space-between; align-items: baseline; margin-top: 10px; gap: 8px; }
+  .tile-meta .name { font-weight: 700; font-size: .95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tile-meta .price { color: var(--green); font-weight: 800; font-size: .95rem; flex-shrink: 0; }
+  .tile-sub { display: flex; justify-content: space-between; margin-top: 3px; }
+  .tile-sub .num { color: var(--muted); font-size: .76rem; font-weight: 600; }
+  .trend { font-size: .74rem; font-weight: 700; }
+  .trend.up { color: var(--green); } .trend.down { color: var(--red); }
+
+  .note {
+    margin-top: 40px; text-align: center; color: var(--muted); font-size: .8rem; line-height: 1.6;
+  }
+</style>
+</head>
+<body>
+<aside>
+  <div class="logo"><div class="logo-badge">🃏</div><b>Poke<span>Price</span></b></div>
+  <div class="nav-item active"><span class="ico">🔍</span> Market Search</div>
+  <div class="nav-item"><span class="ico">📊</span> Portfolio</div>
+  <div class="nav-spacer"></div>
+  <div class="nav-item"><span class="ico">↩</span> Log out</div>
+</aside>
+<main>
+  <div class="topbar">
+    <div class="searchwrap">🔍 <input value="charizard" /><span class="filter-ico">⚙</span></div>
+    <div class="top-right"><button class="pill dark">Refresh</button><button class="pill yellow">+ Portfolio</button></div>
+  </div>
+  <div class="content">
+    <h1><q>charizard</q></h1>
+    <div class="subtitle">Search Results (32) · TCGplayer market pricing · updated daily</div>
+    <div class="toolbar">
+      <select><option>Sort: Best Match</option></select>
+      <button>Filters</button>
+    </div>
+    <div class="grid">
+      <div class="tile">
+        <div class="imgwrap"><img src="https://tcgplayer-cdn.tcgplayer.com/product/510301_in_400x400.jpg" onerror="this.style.display='none'"><span class="setmark">OBF</span><span class="chip">Holofoil</span></div>
+        <div class="tile-meta"><span class="name">Charizard ex</span><span class="price">$165.24</span></div>
+        <div class="tile-sub"><span class="num">#223/197 · Special Illustration Rare</span><span class="trend up">▲ 3.1%</span></div>
+      </div>
+      <div class="tile">
+        <div class="imgwrap"><img src="https://tcgplayer-cdn.tcgplayer.com/product/96392_in_400x400.jpg" onerror="this.style.display='none'"><span class="setmark">XYP</span><span class="chip">Holofoil</span></div>
+        <div class="tile-meta"><span class="name">Charizard EX — XY29</span><span class="price">$20.77</span></div>
+        <div class="tile-sub"><span class="num">#XY29 · Promo</span><span class="trend down">▼ 1.2%</span></div>
+      </div>
+      <div class="tile">
+        <div class="imgwrap"><img src="https://tcgplayer-cdn.tcgplayer.com/product/42360_in_400x400.jpg" onerror="this.style.display='none'"><span class="setmark">BS</span><span class="chip">1st Edition Holofoil</span></div>
+        <div class="tile-meta"><span class="name">Charizard (Shadowless)</span><span class="price">$3,800.00</span></div>
+        <div class="tile-sub"><span class="num">#4/102 · Holo Rare</span><span class="trend up">▲ 8.6%</span></div>
+      </div>
+      <div class="tile">
+        <div class="imgwrap"><img src="https://tcgplayer-cdn.tcgplayer.com/product/42360_in_400x400.jpg" onerror="this.style.display='none'"><span class="setmark">BS</span><span class="chip">Unlimited Holofoil</span></div>
+        <div class="tile-meta"><span class="name">Charizard (Shadowless)</span><span class="price">$2,146.38</span></div>
+        <div class="tile-sub"><span class="num">#4/102 · Holo Rare</span><span class="trend down">▼ 6.7%</span></div>
+      </div>
+      <div class="tile">
+        <div class="imgwrap"><img src="https://tcgplayer-cdn.tcgplayer.com/product/516323_in_400x400.jpg" onerror="this.style.display='none'"><span class="setmark">OBF</span><span class="chip sealed">📦 Sealed</span></div>
+        <div class="tile-meta"><span class="name">Obsidian Flames Booster Box</span><span class="price">$129.99</span></div>
+        <div class="tile-sub"><span class="num">Booster Box</span><span class="trend up">▲ 7.4%</span></div>
+      </div>
+      <div class="tile">
+        <div class="imgwrap"><img src="https://tcgplayer-cdn.tcgplayer.com/product/477013_in_400x400.jpg" onerror="this.style.display='none'"><span class="setmark">OBF</span><span class="chip">Holofoil</span></div>
+        <div class="tile-meta"><span class="name">Charizard ex</span><span class="price">$24.50</span></div>
+        <div class="tile-sub"><span class="num">#125/197 · Double Rare</span><span class="trend up">▲ 0.8%</span></div>
+      </div>
+    </div>
+    <div class="note">
+      MOCKUP A — faithful to pkmn.gg: left sidebar, image-forward grid, minimal tile text.<br>
+      Clicking a tile would expand a detail panel with the condition table, graded eBay sales, and "+ Portfolio" controls.
+    </div>
+  </div>
+</main>
+</body>
+</html>

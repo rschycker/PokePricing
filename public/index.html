@@ -3,22 +3,25 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Pokemon Card Price Lookup</title>
+<title>PokePrice Lookup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #0f1223;
-    --panel: #1a1f3a;
-    --panel2: #232a4d;
-    --text: #e8eaf6;
-    --muted: #9aa3c7;
-    --accent: #ffcb05;
+    --bg: #17181c;
+    --panel: #1e2025;
+    --panel2: #24262c;
+    --text: #f4f5f7;
+    --muted: #8b909a;
+    --accent: #f8d34a;
     --accent2: #3d7dca;
-    --green: #4ade80;
-    --border: #2e3763;
+    --green: #3ddc84;
+    --red: #ff6b6b;
+    --border: #2e3138;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
-    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-family: 'Inter', system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     background: var(--bg);
     color: var(--text);
     min-height: 100vh;
@@ -258,23 +261,91 @@
     border-radius: 50%; animation: spin .8s linear infinite;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ============ pkmn.gg-style redesign (Mockup B) ============ */
+  header {
+    background: var(--panel); border-bottom: 1px solid var(--border);
+    padding: 14px 28px; text-align: left;
+    display: flex; align-items: center; gap: 20px;
+    position: sticky; top: 0; z-index: 10;
+  }
+  .logo { display: flex; align-items: center; gap: 10px; }
+  .logo-badge {
+    width: 34px; height: 34px; background: var(--accent); border-radius: 9px;
+    display: flex; align-items: center; justify-content: center; font-size: 1.05rem;
+  }
+  .logo b { font-size: 1.12rem; font-weight: 800; }
+  .logo b span { color: var(--accent); }
+  header .topnav { margin-top: 0; justify-content: flex-start; }
+  .nav-btn {
+    padding: 9px 20px; border-radius: 22px; border: none;
+    background: none; color: var(--muted); font-weight: 700; font-size: .88rem; font-family: inherit;
+  }
+  .nav-btn:hover:not(.active) { background: var(--panel2); color: var(--text); }
+  .nav-btn.active { background: var(--accent); color: #17181c; }
+  .nav-btn.logout { margin-left: auto; font-size: .82rem; }
+  .hero { text-align: center; padding: 34px 0 6px; }
+  .hero h1 { font-size: 2.3rem; font-weight: 800; letter-spacing: -.5px; }
+  .hero h1 span { color: var(--accent); }
+  .hero p { color: var(--muted); margin: 8px 0 22px; font-size: .92rem; }
+  .search-row { max-width: 640px; margin: 0 auto 14px; }
+  .search-box {
+    flex: 1; display: flex; align-items: center; gap: 10px;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 12px 16px;
+  }
+  .search-box:focus-within { border-color: var(--accent); }
+  .search-box input { flex: 1; background: none; border: none; outline: none; color: var(--text); font-size: 1rem; font-family: inherit; padding: 0; }
+  .search-row button[type="submit"] {
+    background: var(--accent); color: #17181c; border-radius: 14px; font-weight: 800; font-family: inherit;
+  }
+  .pf-controls { max-width: 640px; margin: 0 auto 8px; }
+  #view-portfolio .pf-controls { max-width: none; }
+  .pf-controls select, .pf-controls button, .pf-chiprow button, .pf-range input { font-family: inherit; }
+  .card { border-radius: 16px; background: var(--panel); }
+  .card-top img, .card-top .placeholder { border-radius: 10px; }
+  .card h3 { font-weight: 800; }
+  .market { color: var(--green); font-size: 1.3rem; }
+  .printing { background: var(--panel2); border-radius: 14px; padding: 3px 10px; font-weight: 700; }
+  .trend.down { color: var(--red); }
+  .cond-strip { display: flex; border-top: 1px solid var(--border); }
+  .cond-cell { flex: 1; text-align: center; padding: 10px 4px; border-right: 1px solid var(--border); }
+  .cond-cell:last-child { border-right: none; }
+  .cond-cell b { display: block; font-size: .8rem; font-weight: 700; }
+  .cond-cell span { color: var(--muted); font-size: .64rem; font-weight: 700; letter-spacing: .05em; }
+  .cond-note { padding: 8px 16px 12px; color: var(--muted); font-size: .74rem; border-top: 1px solid var(--border); }
+  .graded-pick { display: flex; gap: 8px; align-items: center; padding: 4px 16px 14px; }
+  .graded-pick select {
+    background: var(--panel2); color: var(--text); border: 1px solid var(--border);
+    border-radius: 10px; padding: 8px 10px; font-size: .82rem; font-family: inherit;
+  }
+  .graded-price { margin-left: auto; text-align: right; }
+  .graded-price b { color: var(--green); font-size: 1.05rem; font-weight: 800; display: block; }
+  .graded-price small { color: var(--muted); font-size: .68rem; font-weight: 600; }
+  .add-pf button { background: var(--accent); color: #17181c; border-radius: 10px; font-weight: 800; font-family: inherit; }
+  .add-pf select, .add-pf input { border-radius: 10px; font-family: inherit; }
+  .pf-total { color: var(--green); }
+  .pf-header, .pf-item, .pf-filters { border-radius: 14px; }
+  .banner { border-radius: 12px; }
 </style>
 </head>
 <body>
 <header>
-  <h1>Poke<span>Price</span> Lookup</h1>
-  <p>TCGplayer market pricing by card condition &middot; updated daily</p>
+  <div class="logo"><div class="logo-badge">🃏</div><b>Poke<span>Price</span></b></div>
   <nav class="topnav">
     <button type="button" class="nav-btn active" data-view="search">Market Search</button>
     <button type="button" class="nav-btn" data-view="portfolio">Portfolio</button>
-    <button type="button" class="nav-btn logout" id="logoutBtn" style="display:none">Log out</button>
   </nav>
+  <button type="button" class="nav-btn logout" id="logoutBtn" style="display:none">Log out ↩</button>
 </header>
 
 <div class="container">
   <section id="view-search">
+    <div class="hero">
+      <h1>Poke<span>Price</span> Lookup</h1>
+      <p>TCGplayer market pricing by condition · sealed products · graded sales</p>
+    </div>
     <form class="search-row" id="searchForm">
-      <input id="searchInput" type="text" placeholder="Search cards or sealed… e.g. Charizard, Umbreon VMAX, booster box" autocomplete="off" autofocus />
+      <div class="search-box">🔍 <input id="searchInput" type="text" placeholder="Search cards or sealed… e.g. Charizard, booster box" autocomplete="off" autofocus /></div>
       <button type="submit">Search</button>
     </form>
     <div class="pf-controls">
@@ -564,15 +635,12 @@
     return ((v, vi) => {
       const conds = v.conditions || {};
       const hasConds = Object.keys(conds).length > 0;
-      const rows = Object.keys(CONDITION_LABELS).map((code) => `
-        <tr>
-          <td class="cond-name">${CONDITION_LABELS[code]}</td>
-          <td>${usd(conds[code])}</td>
-        </tr>`).join('');
+      const strip = `<div class="cond-strip">${Object.keys(CONDITION_LABELS).map((code) => `
+        <div class="cond-cell" title="${CONDITION_LABELS[code]}"><span>${code}</span><b>${usd(conds[code])}</b></div>`).join('')}</div>`;
       const missing = Object.keys(CONDITION_LABELS).some((code) => conds[code] === undefined);
-      const footnote = hasConds
-        ? `<tr><td colspan="2" class="cond-name footnote">TCGplayer market prices from recent sales${missing ? ' · — = no recent sales in this condition' : ''}</td></tr>`
-        : '';
+      const condNote = hasConds && missing
+        ? '<div class="cond-note">— = no recent sales in this condition</div>'
+        : !hasConds ? '<div class="cond-note">No condition sales data for this card</div>' : '';
 
       return `
       <div class="card">
@@ -591,11 +659,8 @@
           </div>
         </div>
         ${card.sealed
-          ? `<table><tbody><tr><td class="cond-name" style="padding:8px 16px 14px;border-top:1px solid var(--border)">Sealed product — condition pricing not applicable${v.low !== null && v.low !== undefined ? ' · lowest listing ' + usd(v.low).replace(/<[^>]*>/g, '') : ''}</td></tr></tbody></table>`
-          : `<table>
-          <thead><tr><th>Condition</th><th style="text-align:right">Price</th></tr></thead>
-          <tbody>${hasConds ? rows + footnote : `<tr><td colspan="2" class="cond-name" style="padding-bottom:14px">Condition breakdown not available for this card${v.low !== null && v.low !== undefined ? ' · lowest listing ' + usd(v.low).replace(/<[^>]*>/g, '') : ''}</td></tr>`}</tbody>
-        </table>`}
+          ? `<div class="cond-note">Sealed product — condition pricing not applicable${v.low !== null && v.low !== undefined ? ' · lowest listing ' + usd(v.low).replace(/<[^>]*>/g, '') : ''}</div>`
+          : strip + condNote}
         ${vi === 0 ? gradedSection(card, cardIdx) : ''}
         <div class="add-pf" data-card="${cardIdx}" data-variant="${vi}">
           ${card.sealed ? '' : `<select class="pf-cond" aria-label="Condition">${Object.keys(CONDITION_LABELS).map((c) => `<option value="${c}">${CONDITION_LABELS[c]}</option>`).join('')}</select>`}
@@ -621,14 +686,10 @@
     if (!card.graded) return '';
     return `
       <div class="graded-title">Graded — eBay sales</div>
-      <div class="graded-ui" data-idx="${cardIdx}">
-        <div class="grader-btns">
-          ${GRADERS.map((g) =>
-            `<button type="button" data-grader="${g}" ${card.graded[g] ? '' : 'disabled title="No sales data"'}>${g}</button>`
-          ).join('')}
-        </div>
+      <div class="graded-pick graded-ui" data-idx="${cardIdx}">
+        <select class="grader-select" aria-label="Grading company"></select>
         <select class="grade-select" aria-label="Grade"></select>
-        <div class="grade-panel"></div>
+        <div class="graded-price"><b>—</b><small></small></div>
       </div>`;
   }
 
@@ -636,52 +697,44 @@
     document.querySelectorAll('.graded-ui').forEach((ui) => {
       const card = cardsData[Number(ui.dataset.idx)];
       if (!card || !card.graded) return;
-      const btns = [...ui.querySelectorAll('.grader-btns button')];
-      const select = ui.querySelector('.grade-select');
-      const panel = ui.querySelector('.grade-panel');
+      const graderSel = ui.querySelector('.grader-select');
+      const gradeSel = ui.querySelector('.grade-select');
+      const priceEl = ui.querySelector('.graded-price');
 
-      const selectGrader = (grader) => {
-        btns.forEach((b) => b.classList.toggle('active', b.dataset.grader === grader));
-        const grades = Object.keys(card.graded[grader] || {})
-          .sort((a, b) => parseFloat(b) - parseFloat(a));
-        select.innerHTML = grades.map((g) => `<option value="${esc(g)}">${grader} ${esc(g)}</option>`).join('');
-        renderPanel(grader, grades[0]);
+      graderSel.innerHTML = GRADERS.map((g) => `<option value="${g}">${g}</option>`).join('');
+
+      // Grades 10 down to 1, plus any extra grades present in the data (e.g. BGS 9.5).
+      const gradesFor = (grader) => {
+        const base = ['10', '9', '8', '7', '6', '5', '4', '3', '2', '1'];
+        const extra = Object.keys(card.graded[grader] || {}).filter((g) => !base.includes(g));
+        return [...base, ...extra].sort((a, b) => parseFloat(b) - parseFloat(a));
       };
 
-      const renderPanel = (grader, grade) => {
-        const entry = card.graded[grader]?.[grade];
-        if (!entry) { panel.innerHTML = '<div class="panel-empty">No sales data for this grade.</div>'; return; }
-        if (entry.recentSales && entry.recentSales.length) {
-          panel.innerHTML = '<ol class="sales-list">' + entry.recentSales.map((s) => `
-            <li>
-              <span class="sale-date">${fmtDate(s.date)}</span>
-              <b>${usd(s.price)}</b>
-              ${s.url ? `<a href="${esc(s.url)}" target="_blank" rel="noopener">view</a>` : ''}
-            </li>`).join('') + '</ol>';
+      const renderPrice = () => {
+        const entry = card.graded[graderSel.value]?.[gradeSel.value];
+        if (!entry || entry.price === null || entry.price === undefined) {
+          priceEl.innerHTML = '<b>—</b><small>no recent sales</small>';
           return;
         }
-        panel.innerHTML = `
-          <div class="stats">
-            <div><span>Market price</span><b>${usd(entry.price)}</b></div>
-            <div><span>7-day market</span><b>${usd(entry.market7d)}</b></div>
-            <div><span>Median sale</span><b>${usd(entry.median)}</b></div>
-            <div><span>Average sale</span><b>${usd(entry.average)}</b></div>
-            <div><span>Total sales</span><b>${entry.count ?? '—'}</b></div>
-            <div><span>Trend</span><b>${entry.trend ? esc(entry.trend) : '—'}</b></div>
-            <div><span>Last sale</span><b>${fmtDate(entry.lastSale)}</b></div>
-          </div>
-          <div class="panel-note">Individual sold listings aren't included in the API response for this grade — showing aggregate stats from recent eBay sales.</div>`;
+        const parts = [];
+        if (entry.count) parts.push(`${entry.count} sales`);
+        if (entry.lastSale) parts.push(`last ${fmtDate(entry.lastSale)}`);
+        priceEl.innerHTML = `<b>${usd(entry.price).replace(/<[^>]*>/g, '—')}</b><small>${parts.join(' · ')}</small>`;
       };
 
-      btns.forEach((b) => b.addEventListener('click', () => !b.disabled && selectGrader(b.dataset.grader)));
-      select.addEventListener('change', () => {
-        const active = btns.find((b) => b.classList.contains('active'));
-        if (active) renderPanel(active.dataset.grader, select.value);
-      });
+      const renderGrades = (keepGrade) => {
+        const grades = gradesFor(graderSel.value);
+        gradeSel.innerHTML = grades.map((g) => `<option value="${esc(g)}">${esc(g)}</option>`).join('');
+        gradeSel.value = keepGrade && grades.includes(keepGrade) ? keepGrade : '10';
+        renderPrice();
+      };
 
-      const first = GRADERS.find((g) => card.graded[g]);
-      if (first) selectGrader(first);
-      else { select.style.display = 'none'; panel.innerHTML = '<div class="panel-empty">No PSA/BGS/CGC sales data for this card.</div>'; }
+      graderSel.addEventListener('change', () => renderGrades(gradeSel.value));
+      gradeSel.addEventListener('change', renderPrice);
+
+      // Default: PSA 10.
+      graderSel.value = 'PSA';
+      renderGrades('10');
     });
   }
 

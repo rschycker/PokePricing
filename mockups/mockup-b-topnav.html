@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Mockup B — Top nav, data-rich cards in pkmn.gg palette</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #17181c; --bg2: #1e2025; --panel: #24262c; --panel2: #2a2d34; --border: #2e3138;
+    --text: #f4f5f7; --muted: #8b909a; --accent: #f8d34a; --green: #3ddc84; --red: #ff6b6b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  header {
+    display: flex; align-items: center; gap: 20px; padding: 14px 32px;
+    background: var(--bg2); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 5;
+  }
+  .logo { display: flex; align-items: center; gap: 10px; }
+  .logo-badge { width: 34px; height: 34px; background: var(--accent); border-radius: 9px; display: flex; align-items: center; justify-content: center; }
+  .logo b { font-size: 1.15rem; font-weight: 800; }
+  .logo b span { color: var(--accent); }
+  nav { display: flex; gap: 6px; margin-left: 10px; }
+  .nav-pill { padding: 9px 20px; border-radius: 22px; font-weight: 700; font-size: .88rem; color: var(--muted); cursor: pointer; }
+  .nav-pill.active { background: var(--accent); color: #17181c; }
+  .nav-pill:hover:not(.active) { background: var(--panel); color: var(--text); }
+  .logout { margin-left: auto; color: var(--muted); font-size: .85rem; font-weight: 600; cursor: pointer; }
+
+  .hero { text-align: center; padding: 42px 16px 8px; }
+  .hero h1 { font-size: 2.4rem; font-weight: 800; letter-spacing: -.5px; }
+  .hero h1 span { color: var(--accent); }
+  .hero p { color: var(--muted); margin-top: 8px; font-size: .92rem; }
+  .search-hero { max-width: 640px; margin: 26px auto 0; display: flex; gap: 10px; padding: 0 16px; }
+  .search-hero .box {
+    flex: 1; display: flex; align-items: center; gap: 10px;
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 14px; padding: 14px 18px;
+  }
+  .search-hero input { flex: 1; background: none; border: none; outline: none; color: var(--text); font-size: 1rem; font-family: inherit; }
+  .search-hero button { background: var(--accent); border: none; border-radius: 14px; padding: 0 30px; font-weight: 800; font-size: .95rem; cursor: pointer; color: #17181c; font-family: inherit; }
+
+  .container { max-width: 1150px; margin: 0 auto; padding: 26px 20px 60px; }
+  .toolbar { display: flex; gap: 10px; margin-bottom: 20px; align-items: center; }
+  .toolbar select, .toolbar .btn {
+    background: var(--bg2); color: var(--text); border: 1px solid var(--border);
+    border-radius: 20px; padding: 8px 18px; font-size: .84rem; font-weight: 600; font-family: inherit; cursor: pointer;
+  }
+  .toolbar .count { margin-left: auto; color: var(--muted); font-size: .84rem; font-weight: 600; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 18px; }
+  .card { background: var(--bg2); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
+  .card-top { display: flex; gap: 14px; padding: 16px; }
+  .card-top img { width: 96px; height: 132px; object-fit: contain; background: var(--panel); border-radius: 10px; }
+  .card-info { min-width: 0; }
+  .card-info h3 { font-size: 1.02rem; font-weight: 800; }
+  .meta { color: var(--muted); font-size: .78rem; margin-top: 4px; font-weight: 600; line-height: 1.5; }
+  .price-row { display: flex; align-items: baseline; gap: 10px; margin-top: 10px; }
+  .price { color: var(--green); font-size: 1.35rem; font-weight: 800; }
+  .trend { font-size: .78rem; font-weight: 700; }
+  .trend.up { color: var(--green); } .trend.down { color: var(--red); }
+  .printing { display: inline-block; margin-top: 8px; background: var(--panel); color: var(--accent); font-size: .7rem; font-weight: 700; border-radius: 14px; padding: 3px 10px; }
+
+  .conds { display: flex; border-top: 1px solid var(--border); }
+  .cond { flex: 1; text-align: center; padding: 10px 4px; border-right: 1px solid var(--border); }
+  .cond:last-child { border-right: none; }
+  .cond b { display: block; font-size: .8rem; font-weight: 700; }
+  .cond span { color: var(--muted); font-size: .64rem; font-weight: 700; letter-spacing: .05em; }
+  .graded-row { display: flex; gap: 6px; padding: 10px 16px 14px; flex-wrap: wrap; border-top: 1px solid var(--border); }
+  .gchip { background: var(--panel); border-radius: 14px; padding: 4px 12px; font-size: .74rem; font-weight: 700; }
+  .gchip b { color: var(--green); }
+  .card-actions { display: flex; gap: 8px; padding: 0 16px 16px; }
+  .card-actions select, .card-actions input {
+    background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 10px;
+    padding: 8px 10px; font-size: .8rem; font-family: inherit;
+  }
+  .card-actions input { width: 54px; }
+  .card-actions .add { flex: 1; background: var(--accent); color: #17181c; border: none; border-radius: 10px; font-weight: 800; font-size: .82rem; cursor: pointer; }
+
+  .note { margin-top: 40px; text-align: center; color: var(--muted); font-size: .8rem; line-height: 1.6; }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo"><div class="logo-badge">🃏</div><b>Poke<span>Price</span></b></div>
+  <nav>
+    <span class="nav-pill active">Market Search</span>
+    <span class="nav-pill">Portfolio</span>
+  </nav>
+  <span class="logout">Log out ↩</span>
+</header>
+
+<div class="hero">
+  <h1>Poke<span>Price</span> Lookup</h1>
+  <p>TCGplayer market pricing by condition · sealed products · graded sales</p>
+</div>
+<div class="search-hero">
+  <div class="box">🔍 <input value="charizard ex 223" /></div>
+  <button>Search</button>
+</div>
+
+<div class="container">
+  <div class="toolbar">
+    <select><option>Sort: Best Match</option></select>
+    <span class="btn">Filters</span>
+    <span class="count">2 results · credits remaining: 19,842</span>
+  </div>
+  <div class="grid">
+    <div class="card">
+      <div class="card-top">
+        <img src="https://tcgplayer-cdn.tcgplayer.com/product/510301_in_400x400.jpg" onerror="this.style.visibility='hidden'">
+        <div class="card-info">
+          <h3>Charizard ex</h3>
+          <div class="meta">Obsidian Flames · #223/197<br>Special Illustration Rare</div>
+          <div class="price-row"><span class="price">$165.24</span><span class="trend up">▲ 3.1% (30d)</span></div>
+          <span class="printing">Holofoil</span>
+        </div>
+      </div>
+      <div class="conds">
+        <div class="cond"><span>NM</span><b>$165.24</b></div>
+        <div class="cond"><span>LP</span><b>$151.02</b></div>
+        <div class="cond"><span>MP</span><b>$129.88</b></div>
+        <div class="cond"><span>HP</span><b>$104.11</b></div>
+        <div class="cond"><span>DM</span><b>$82.60</b></div>
+      </div>
+      <div class="graded-row">
+        <span class="gchip">PSA 10 <b>$808.69</b></span>
+        <span class="gchip">PSA 9 <b>$145.50</b></span>
+        <span class="gchip">CGC 10 <b>$343.73</b></span>
+      </div>
+      <div class="card-actions">
+        <select><option>Near Mint</option></select>
+        <input type="number" value="1">
+        <button class="add">+ Portfolio</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-top">
+        <img src="https://tcgplayer-cdn.tcgplayer.com/product/96392_in_400x400.jpg" onerror="this.style.visibility='hidden'">
+        <div class="card-info">
+          <h3>Charizard EX — XY29</h3>
+          <div class="meta">XY Promos · #XY29<br>Promo</div>
+          <div class="price-row"><span class="price">$20.77</span><span class="trend down">▼ 1.2% (30d)</span></div>
+          <span class="printing">Holofoil</span>
+        </div>
+      </div>
+      <div class="conds">
+        <div class="cond"><span>NM</span><b>$20.77</b></div>
+        <div class="cond"><span>LP</span><b>$17.65</b></div>
+        <div class="cond"><span>MP</span><b>$14.54</b></div>
+        <div class="cond"><span>HP</span><b>—</b></div>
+        <div class="cond"><span>DM</span><b>—</b></div>
+      </div>
+      <div class="graded-row">
+        <span class="gchip">PSA 10 <b>$210.00</b></span>
+        <span class="gchip">PSA 9 <b>$62.40</b></span>
+      </div>
+      <div class="card-actions">
+        <select><option>Near Mint</option></select>
+        <input type="number" value="1">
+        <button class="add">+ Portfolio</button>
+      </div>
+    </div>
+  </div>
+  <div class="note">
+    MOCKUP B — pkmn.gg palette and pills on the current top-nav layout.<br>
+    All data stays visible on each card: condition strip, graded chips, add-to-portfolio controls. Least structural change.
+  </div>
+</div>
+</body>
+</html>
