@@ -241,6 +241,13 @@
   .pf-change.up { color: var(--green); }
   .pf-change.down { color: #f87171; }
   .pf-change.flat { color: var(--muted); }
+  .load-more { text-align: center; margin: 20px 0; }
+  .load-more button {
+    padding: 12px 32px; border-radius: 10px; border: 1px solid var(--border);
+    background: var(--panel); color: var(--text); font-weight: 700; font-size: .92rem; cursor: pointer;
+  }
+  .load-more button:hover { border-color: var(--accent); color: var(--accent); }
+  .load-more button:disabled { opacity: .6; cursor: wait; }
   .card-footer { margin-top: auto; padding: 10px 16px 14px; }
   .card-footer a { color: var(--accent2); font-size: .82rem; text-decoration: none; }
   .card-footer a:hover { text-decoration: underline; }
@@ -305,6 +312,9 @@
     <div class="banner" id="demoBanner"></div>
     <div class="spinner" id="spinner"></div>
     <div class="grid" id="results"></div>
+    <div class="load-more" id="msMore" style="display:none">
+      <button type="button" id="msMoreBtn">Load more results</button>
+    </div>
     <div class="empty" id="empty">Search for a Pokemon card to see its current market pricing.</div>
   </section>
 
@@ -400,6 +410,8 @@
   const MS_DEFAULTS = { sort: 'best', type: 'all', pmin: '', pmax: '' };
   let msState = { ...MS_DEFAULTS };
   const MS_SORTS = ['best','price_desc','price_asc','change_desc','change_asc','pct_desc','pct_asc','num_asc','num_desc','name_asc','name_desc'];
+  let msPages = 1;      // how many pages are loaded (restored from URL on refresh)
+  let msHasMore = false;
 
   function encodeSearchHash(q) {
     const p = new URLSearchParams();
@@ -408,6 +420,7 @@
     if (msState.type !== MS_DEFAULTS.type) p.set('type', msState.type);
     if (msState.pmin !== '') p.set('pmin', msState.pmin);
     if (msState.pmax !== '') p.set('pmax', msState.pmax);
+    if (msPages > 1) p.set('pages', String(msPages));
     return 'search?' + p.toString();
   }
 
@@ -463,51 +476,86 @@
       : `${tiles.length} result${tiles.length === 1 ? '' : 's'}`;
     statusEl.textContent = countText
       + (lastSearchMeta?.creditsRemaining ? ' · API credits remaining today: ' + lastSearchMeta.creditsRemaining : '');
+    document.getElementById('msMore').style.display = msHasMore && cardsData.length ? '' : 'none';
   }
 
   form.addEventListener('submit', (e) => {
     e.preventDefault();
     const q = input.value.trim();
     if (q.length < 2) { statusEl.textContent = 'Enter at least 2 characters.'; return; }
+    msPages = 1; // new query starts back at one page
     const target = encodeSearchHash(q);
     if (location.hash.slice(1) === target) performSearch(q); // same query: hashchange won't fire
     else location.hash = target;
   });
 
+  async function fetchSearchPage(q, page) {
+    const res = await fetch('/api/search?q=' + encodeURIComponent(q) + '&page=' + page);
+    const data = await res.json();
+    if (!res.ok) {
+      statusEl.textContent = data.error || 'Something went wrong.';
+      return false;
+    }
+    if (data.demoMode && data.note) {
+      banner.textContent = data.note;
+      banner.style.display = 'block';
+    }
+    cardsData.push(...(data.results || []));
+    msHasMore = !!data.hasMore;
+    lastSearchMeta = { creditsRemaining: data.creditsRemaining };
+    return true;
+  }
+
   async function performSearch(q) {
     lastQuery = q;
+    cardsData = [];
+    msHasMore = false;
     grid.innerHTML = '';
     empty.style.display = 'none';
     banner.style.display = 'none';
     statusEl.textContent = '';
     spinner.style.display = 'block';
+    document.getElementById('msMore').style.display = 'none';
 
     try {
-      const res = await fetch('/api/search?q=' + encodeURIComponent(q));
-      const data = await res.json();
+      // Restore however many pages were loaded before a refresh.
+      for (let p = 1; p <= msPages; p++) {
+        const ok = await fetchSearchPage(q, p);
+        if (!ok) { spinner.style.display = 'none'; return; }
+        if (!msHasMore) { msPages = p; break; }
+      }
       spinner.style.display = 'none';
 
-      if (!res.ok) { statusEl.textContent = data.error || 'Something went wrong.'; return; }
-
-      if (data.demoMode) {
-        banner.textContent = data.note;
-        banner.style.display = 'block';
-      }
-
-      if (!data.results || data.results.length === 0) {
+      if (cardsData.length === 0) {
         empty.style.display = 'block';
         empty.textContent = 'No cards found for "' + q + '". Try a different name.';
         return;
       }
-
-      cardsData = data.results;
-      lastSearchMeta = { creditsRemaining: data.creditsRemaining };
       renderSearchResults();
     } catch (err) {
       spinner.style.display = 'none';
       statusEl.textContent = 'Network error — please try again.';
     }
   }
+
+  document.getElementById('msMoreBtn').addEventListener('click', async () => {
+    if (!lastQuery || !msHasMore) return;
+    const btn = document.getElementById('msMoreBtn');
+    btn.disabled = true;
+    btn.textContent = 'Loading…';
+    try {
+      const ok = await fetchSearchPage(lastQuery, msPages + 1);
+      if (ok) {
+        msPages++;
+        pushMsHash();
+        renderSearchResults();
+      }
+    } catch {
+      statusEl.textContent = 'Network error — please try again.';
+    }
+    btn.disabled = false;
+    btn.textContent = 'Load more results';
+  });
 
   let cardsData = [];
   const GRADERS = ['PSA', 'BGS', 'CGC'];
@@ -676,6 +724,7 @@
           pmin: p.get('pmin') ?? '',
           pmax: p.get('pmax') ?? '',
         };
+        msPages = Math.max(1, Math.min(20, Math.floor(Number(p.get('pages'))) || 1));
       }
     } else if (raw && raw.startsWith('portfolio')) {
       name = 'portfolio';

@@ -697,14 +697,19 @@ app.get('/api/health', (_req, res) => {
   res.json({ ok: true, demoMode: !API_KEY, authEnabled: AUTH_ENABLED });
 });
 
+const CARDS_PER_PAGE = 24;
+const SEALED_PER_PAGE = 8;
+
 app.get('/api/search', async (req, res) => {
   const q = String(req.query.q || '').trim().slice(0, 100);
+  const page = Math.max(1, Math.min(20, Math.floor(Number(req.query.page)) || 1));
   if (q.length < 2) {
     return res.status(400).json({ error: 'Enter at least 2 characters.' });
   }
 
   // Demo mode: no API key configured.
   if (!API_KEY) {
+    if (page > 1) return res.json({ demoMode: true, results: [], hasMore: false, page });
     const results = [
       ...DEMO_CARDS.filter((c) => c.name.toLowerCase().includes(q.toLowerCase())).map(normalizeCard),
       ...DEMO_SEALED.filter((s) => s.name.toLowerCase().includes(q.toLowerCase())).map(normalizeSealed),
@@ -713,18 +718,20 @@ app.get('/api/search', async (req, res) => {
       demoMode: true,
       note: 'PPT_API_KEY is not set — showing sample data. Add your PokemonPriceTracker API key to get live TCGplayer prices.',
       results: results.length ? results : [...DEMO_CARDS.map(normalizeCard), ...DEMO_SEALED.map(normalizeSealed)],
+      hasMore: false,
+      page,
     });
   }
 
-  const cacheKey = `search:${q.toLowerCase()}`;
+  const cacheKey = `search:${q.toLowerCase()}:p${page}`;
   const cached = cacheGet(cacheKey);
   if (cached) return res.json(cached);
 
   try {
     const headers = { Authorization: `Bearer ${API_KEY}` };
     // includeHistory/includeEbay require the paid API plan (3 credits per card).
-    const cardsUrl = `${API_BASE}/cards?search=${encodeURIComponent(q)}&limit=12&includeHistory=true&includeEbay=true&days=30`;
-    const sealedUrl = `${API_BASE}/sealed-products?search=${encodeURIComponent(q)}&limit=6&includeHistory=true&days=30`;
+    const cardsUrl = `${API_BASE}/cards?search=${encodeURIComponent(q)}&limit=${CARDS_PER_PAGE}&offset=${(page - 1) * CARDS_PER_PAGE}&includeHistory=true&includeEbay=true&days=30`;
+    const sealedUrl = `${API_BASE}/sealed-products?search=${encodeURIComponent(q)}&limit=${SEALED_PER_PAGE}&offset=${(page - 1) * SEALED_PER_PAGE}&includeHistory=true&days=30`;
 
     const [cardsRes, sealedRes] = await Promise.allSettled([
       fetch(cardsUrl, { headers }),
@@ -749,6 +756,7 @@ app.get('/api/search', async (req, res) => {
     const body = await upstream.json();
     const rawCards = Array.isArray(body.data) ? body.data : Array.isArray(body) ? body : [];
     const results = rawCards.map(normalizeCard);
+    let hasMore = body.metadata?.hasMore ?? rawCards.length === CARDS_PER_PAGE;
 
     // Sealed products: best-effort — a failure here shouldn't break card search.
     if (sealedRes.status === 'fulfilled' && sealedRes.value.ok) {
@@ -756,6 +764,7 @@ app.get('/api/search', async (req, res) => {
         const sealedBody = await sealedRes.value.json();
         const rawSealed = Array.isArray(sealedBody.data) ? sealedBody.data : [];
         results.push(...rawSealed.map(normalizeSealed));
+        hasMore = hasMore || (sealedBody.metadata?.hasMore ?? rawSealed.length === SEALED_PER_PAGE);
       } catch (err) {
         console.error('Sealed products parse failed:', err.message);
       }
@@ -766,6 +775,8 @@ app.get('/api/search', async (req, res) => {
     const payload = {
       demoMode: false,
       results,
+      hasMore,
+      page,
       creditsRemaining: upstream.headers.get('X-RateLimit-Daily-Remaining'),
     };
     cacheSet(cacheKey, payload);
