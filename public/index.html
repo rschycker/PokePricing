@@ -270,6 +270,37 @@
       <input id="searchInput" type="text" placeholder="Search cards or sealed… e.g. Charizard, Umbreon VMAX, booster box" autocomplete="off" autofocus />
       <button type="submit">Search</button>
     </form>
+    <div class="pf-controls">
+      <select id="msSort" aria-label="Sort results by" style="flex:1">
+        <option value="best">Best Match</option>
+        <option value="price_desc">Price: High to Low</option>
+        <option value="price_asc">Price: Low to High</option>
+        <option value="change_desc">Price Change: High to Low</option>
+        <option value="change_asc">Price Change: Low to High</option>
+        <option value="pct_desc">Percent Change: High to Low</option>
+        <option value="pct_asc">Percent Change: Low to High</option>
+        <option value="num_asc">Card Number: Low to High</option>
+        <option value="num_desc">Card Number: High to Low</option>
+        <option value="name_asc">Product Name: A to Z</option>
+        <option value="name_desc">Product Name: Z to A</option>
+      </select>
+      <button type="button" id="msFilterBtn">Filters</button>
+    </div>
+    <div class="pf-filters" id="msFilters" style="display:none">
+      <div class="pf-filter-group">
+        <label>Product type</label>
+        <div class="pf-chiprow" id="msType">
+          <button type="button" data-val="all" class="active">All</button>
+          <button type="button" data-val="cards">Cards Only</button>
+          <button type="button" data-val="sealed">Sealed Only</button>
+        </div>
+      </div>
+      <div class="pf-filter-group">
+        <label>Price range (market)</label>
+        <div class="pf-range">$ <input type="number" id="msPmin" min="0" placeholder="min"> to $ <input type="number" id="msPmax" min="0" placeholder="max"></div>
+      </div>
+      <button type="button" id="msClearFilters">Clear filters</button>
+    </div>
     <div class="status" id="status"></div>
     <div class="banner" id="demoBanner"></div>
     <div class="spinner" id="spinner"></div>
@@ -362,12 +393,83 @@
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   let lastQuery = null;
+  let lastSearchMeta = null;
+
+  /* ---- Search sort/filter state (persisted in the URL hash) ---- */
+
+  const MS_DEFAULTS = { sort: 'best', type: 'all', pmin: '', pmax: '' };
+  let msState = { ...MS_DEFAULTS };
+  const MS_SORTS = ['best','price_desc','price_asc','change_desc','change_asc','pct_desc','pct_asc','num_asc','num_desc','name_asc','name_desc'];
+
+  function encodeSearchHash(q) {
+    const p = new URLSearchParams();
+    p.set('q', q);
+    if (msState.sort !== MS_DEFAULTS.sort) p.set('sort', msState.sort);
+    if (msState.type !== MS_DEFAULTS.type) p.set('type', msState.type);
+    if (msState.pmin !== '') p.set('pmin', msState.pmin);
+    if (msState.pmax !== '') p.set('pmax', msState.pmax);
+    return 'search?' + p.toString();
+  }
+
+  function pushMsHash() {
+    if (lastQuery) history.replaceState(null, '', '#' + encodeSearchHash(lastQuery));
+  }
+
+  function msFiltersActive() {
+    return msState.type !== 'all' || msState.pmin !== '' || msState.pmax !== '';
+  }
+
+  function syncMsControls() {
+    document.getElementById('msSort').value = msState.sort;
+    document.querySelectorAll('#msType button').forEach((b) => b.classList.toggle('active', b.dataset.val === msState.type));
+    document.getElementById('msPmin').value = msState.pmin;
+    document.getElementById('msPmax').value = msState.pmax;
+    document.getElementById('msFilterBtn').classList.toggle('filters-on', msFiltersActive());
+    if (msFiltersActive()) document.getElementById('msFilters').style.display = '';
+  }
+
+  function renderSearchResults() {
+    const tiles = [];
+    cardsData.forEach((card, ci) => card.variants.forEach((v, vi) => tiles.push({ card, ci, v, vi })));
+    const filtered = tiles.filter((t) => {
+      if (msState.type === 'cards' && t.card.sealed) return false;
+      if (msState.type === 'sealed' && !t.card.sealed) return false;
+      if (msState.pmin !== '' && (t.v.market === null || t.v.market < Number(msState.pmin))) return false;
+      if (msState.pmax !== '' && (t.v.market === null || t.v.market > Number(msState.pmax))) return false;
+      return true;
+    });
+    const pctOf = (t) => t.v.history?.change30d ?? t.v.history?.change7d ?? null;
+    const dollarOf = (t) => {
+      const p = pctOf(t);
+      return p !== null && t.v.market !== null && t.v.market !== undefined ? t.v.market - t.v.market / (1 + p / 100) : null;
+    };
+    const MS_CMP = {
+      price_desc: (a, b) => (b.v.market ?? -1) - (a.v.market ?? -1),
+      price_asc: (a, b) => (a.v.market ?? Infinity) - (b.v.market ?? Infinity),
+      change_desc: (a, b) => (dollarOf(b) ?? -Infinity) - (dollarOf(a) ?? -Infinity),
+      change_asc: (a, b) => (dollarOf(a) ?? Infinity) - (dollarOf(b) ?? Infinity),
+      pct_desc: (a, b) => (pctOf(b) ?? -Infinity) - (pctOf(a) ?? -Infinity),
+      pct_asc: (a, b) => (pctOf(a) ?? Infinity) - (pctOf(b) ?? Infinity),
+      num_asc: (a, b) => numFrom(a.card.number) - numFrom(b.card.number),
+      num_desc: (a, b) => numFrom(b.card.number) === Infinity ? -1 : numFrom(b.card.number) - numFrom(a.card.number),
+      name_asc: (a, b) => a.card.name.localeCompare(b.card.name),
+      name_desc: (a, b) => b.card.name.localeCompare(a.card.name),
+    };
+    if (MS_CMP[msState.sort]) filtered.sort(MS_CMP[msState.sort]);
+    grid.innerHTML = filtered.map((t) => renderTile(t.card, t.ci, t.v, t.vi)).join('');
+    wireGradedSections();
+    const countText = msFiltersActive()
+      ? `Showing ${filtered.length} of ${tiles.length} results`
+      : `${tiles.length} result${tiles.length === 1 ? '' : 's'}`;
+    statusEl.textContent = countText
+      + (lastSearchMeta?.creditsRemaining ? ' · API credits remaining today: ' + lastSearchMeta.creditsRemaining : '');
+  }
 
   form.addEventListener('submit', (e) => {
     e.preventDefault();
     const q = input.value.trim();
     if (q.length < 2) { statusEl.textContent = 'Enter at least 2 characters.'; return; }
-    const target = 'search=' + encodeURIComponent(q);
+    const target = encodeSearchHash(q);
     if (location.hash.slice(1) === target) performSearch(q); // same query: hashchange won't fire
     else location.hash = target;
   });
@@ -399,12 +501,8 @@
       }
 
       cardsData = data.results;
-
-      statusEl.textContent = data.results.length + ' result' + (data.results.length === 1 ? '' : 's')
-        + (data.creditsRemaining ? ' · API credits remaining today: ' + data.creditsRemaining : '');
-
-      grid.innerHTML = data.results.map(renderCard).join('');
-      wireGradedSections();
+      lastSearchMeta = { creditsRemaining: data.creditsRemaining };
+      renderSearchResults();
     } catch (err) {
       spinner.style.display = 'none';
       statusEl.textContent = 'Network error — please try again.';
@@ -414,9 +512,8 @@
   let cardsData = [];
   const GRADERS = ['PSA', 'BGS', 'CGC'];
 
-  function renderCard(card, cardIdx) {
-    // One card may have multiple printings (normal / holofoil / reverse holo)
-    return card.variants.map((v, vi) => {
+  function renderTile(card, cardIdx, v, vi) {
+    return ((v, vi) => {
       const conds = v.conditions || {};
       const hasConds = Object.keys(conds).length > 0;
       const rows = Object.keys(CONDITION_LABELS).map((code) => `
@@ -461,7 +558,7 @@
           ${card.tcgPlayerUrl ? `<a href="${esc(card.tcgPlayerUrl)}" target="_blank" rel="noopener">View on TCGplayer →</a>` : ''}
         </div>
       </div>`;
-    }).join('');
+    })(v, vi);
   }
 
   function trendBadge(history) {
@@ -564,8 +661,22 @@
     let query = null;
     let pfParams = null;
     if (raw && raw.startsWith('search=')) {
+      // Legacy hash format: search=<query>
       name = 'search';
       try { query = decodeURIComponent(raw.slice(7)); } catch {}
+    } else if (raw && raw.startsWith('search')) {
+      name = 'search';
+      const qi = raw.indexOf('?');
+      if (qi > -1) {
+        const p = new URLSearchParams(raw.slice(qi + 1));
+        query = p.get('q') || null;
+        msState = {
+          sort: MS_SORTS.includes(p.get('sort')) ? p.get('sort') : MS_DEFAULTS.sort,
+          type: ['cards', 'sealed'].includes(p.get('type')) ? p.get('type') : 'all',
+          pmin: p.get('pmin') ?? '',
+          pmax: p.get('pmax') ?? '',
+        };
+      }
     } else if (raw && raw.startsWith('portfolio')) {
       name = 'portfolio';
       const qi = raw.indexOf('?');
@@ -579,16 +690,22 @@
       syncPfControls();
       if (pfItems === null) loadPortfolio();
       else renderPfList();
-    } else if (query && query.length >= 2 && query !== lastQuery) {
-      input.value = query;
-      performSearch(query);
+    } else {
+      syncMsControls();
+      if (query && query.length >= 2 && query !== lastQuery) {
+        input.value = query;
+        performSearch(query);
+      } else if (cardsData.length) {
+        renderSearchResults();
+      }
     }
   }
 
   document.querySelectorAll('.nav-btn:not(.logout)').forEach((btn) => {
     btn.addEventListener('click', () => {
-      // Keep portfolio sort/filter state when returning to the tab.
-      location.hash = btn.dataset.view === 'portfolio' ? encodePfHash() : btn.dataset.view;
+      // Keep each tab's state (query, sort, filters) when switching back to it.
+      location.hash = btn.dataset.view === 'portfolio' ? encodePfHash()
+        : lastQuery ? encodeSearchHash(lastQuery) : 'search';
     });
   });
 
@@ -823,6 +940,36 @@
   document.getElementById('pfClearFilters').addEventListener('click', () => {
     pfState = { ...PF_DEFAULTS, cond: [], sort: pfState.sort };
     pushPfHash(); syncPfControls(); renderPfList();
+  });
+
+  /* ---- Market Search control wiring ---- */
+
+  document.getElementById('msSort').addEventListener('change', (e) => {
+    msState.sort = e.target.value; pushMsHash(); if (cardsData.length) renderSearchResults();
+  });
+  document.getElementById('msFilterBtn').addEventListener('click', () => {
+    const el = document.getElementById('msFilters');
+    el.style.display = el.style.display === 'none' ? '' : 'none';
+  });
+  document.getElementById('msType').addEventListener('click', (e) => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    msState.type = btn.dataset.val;
+    pushMsHash(); syncMsControls(); if (cardsData.length) renderSearchResults();
+  });
+  let msRangeTimer = null;
+  for (const id of ['msPmin', 'msPmax']) {
+    document.getElementById(id).addEventListener('input', (e) => {
+      clearTimeout(msRangeTimer);
+      msRangeTimer = setTimeout(() => {
+        msState[id === 'msPmin' ? 'pmin' : 'pmax'] = e.target.value === '' ? '' : String(Math.max(0, Number(e.target.value)));
+        pushMsHash(); syncMsControls(); if (cardsData.length) renderSearchResults();
+      }, 300);
+    });
+  }
+  document.getElementById('msClearFilters').addEventListener('click', () => {
+    msState = { ...MS_DEFAULTS, sort: msState.sort };
+    pushMsHash(); syncMsControls(); if (cardsData.length) renderSearchResults();
   });
 
   // Initial route — after all view/portfolio state above is declared.
